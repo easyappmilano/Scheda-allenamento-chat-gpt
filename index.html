@@ -907,7 +907,8 @@ async function importBackup(data){
   const foodId=foodIdMap[photo.food_id]||photo.food_id;
   if(!foodId||!photo.storage_path)continue;
   const savedPhoto=await supabaseClient.from("nutrition_food_photos").upsert({
-   user_id:currentUser.id,food_id:foodId,storage_path:photo.storage_path,caption:photo.caption||null
+   user_id:currentUser.id,food_id:foodId,storage_path:photo.storage_path||("inline-data:"+foodId),
+   image_data:photo.image_data||null,mime_type:photo.mime_type||"image/jpeg",caption:photo.caption||null
   },{onConflict:"user_id,storage_path"});
   if(savedPhoto.error)throw savedPhoto.error;
  }
@@ -990,13 +991,18 @@ async function loadFoodDay(){
  const foodIds=[...new Set(entries.map(e=>e.food_id).filter(Boolean))];
  let photos=[];
  if(foodIds.length){
-  const pr=await supabaseClient.from("nutrition_food_photos").select("food_id,storage_path,caption").eq("user_id",currentUser.id).in("food_id",foodIds);
+  const pr=await supabaseClient.from("nutrition_food_photos").select("food_id,storage_path,caption,image_data,mime_type").eq("user_id",currentUser.id).in("food_id",foodIds);
   if(!pr.error)photos=pr.data||[];
  }
  const photoByFood={};
  for(const photo of photos){
-  const signed=await supabaseClient.storage.from("nutrition-food-photos").createSignedUrl(photo.storage_path,3600);
-  if(!signed.error&&signed.data?.signedUrl)photoByFood[photo.food_id]={url:signed.data.signedUrl,caption:photo.caption||""};
+  if(photo.image_data){
+   const imageUrl=String(photo.image_data).startsWith("data:")?photo.image_data:"data:"+(photo.mime_type||"image/jpeg")+";base64,"+photo.image_data;
+   photoByFood[photo.food_id]={url:imageUrl,caption:photo.caption||""};
+  }else if(photo.storage_path){
+   const signed=await supabaseClient.storage.from("nutrition-food-photos").createSignedUrl(photo.storage_path,3600);
+   if(!signed.error&&signed.data?.signedUrl)photoByFood[photo.food_id]={url:signed.data.signedUrl,caption:photo.caption||""};
+  }
  }
  const calc={kcal:0,p:0,c:0,g:0};
  meals.forEach(meal=>{

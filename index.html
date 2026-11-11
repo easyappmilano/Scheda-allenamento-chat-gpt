@@ -722,6 +722,15 @@ async function collectArchive(scope,date){
  });
  const foodPhotos=await readAllPages(function(a,b){return supabaseClient.from("nutrition_food_photos").select("*").eq("user_id",uid).range(a,b);});
   const profileResult=await supabaseClient.from("fitness_profile").select("*").eq("user_id",uid).maybeSingle();
+  const contextResult=await supabaseClient.rpc("get_training_context",{p_user_id:uid});
+  if(contextResult.error)throw contextResult.error;
+  const trainingContext=contextResult.data||{};
+  const weightEntries=await readAllPages(function(a,b){
+   let q=supabaseClient.from("fitness_weight_entries").select("*").eq("user_id",uid).order("measured_at",{ascending:false});
+   if(from)q=q.gte("measured_at",isoStart(from)).lt("measured_at",isoEnd(to));
+   return q.range(a,b);
+  });
+
   if(profileResult.error)throw profileResult.error;
   const fitnessCheckins=await readAllPages(function(a,b){
    let q=supabaseClient.from("fitness_checkins").select("*").eq("user_id",uid).order("checkin_date",{ascending:false});
@@ -770,7 +779,25 @@ async function collectArchive(scope,date){
   workouts:nestedWorkouts,nutrition_meals:nestedMeals,nutrition_foods:foods,
   nutrition_recipes:recipes,daily_nutrition_summaries:dailySummaries,nutrition_food_photos:backupFoodPhotos,
    fitness_profile:profileResult.data||null,fitness_checkins:fitnessCheckins,
-   fitness_measurements:fitnessMeasurements,fitness_progress_photos:backupProgressPhotos
+   fitness_measurements:fitnessMeasurements,fitness_progress_photos:backupProgressPhotos,
+   fitness_weight_entries:weightEntries,
+   continuity_data:{
+    generated_at:new Date().toISOString(),
+    assistant_workflow_version:1,
+    commands:{progress_update:"Aggiornamento forma fisica",workout_plan:"Scheda allenamento",nutrition_log:"Diario alimentare"},
+    operating_rules:[
+     "ChatGPT esegue il ragionamento e le domande; l'app non integra modelli AI.",
+     "Quando un aggiornamento forma fisica è completo, registra il nuovo check-in senza una seconda richiesta di approvazione.",
+     "Prima di inviare una scheda di allenamento a workout_plans, mostra la scheda e attendi approvazione esplicita.",
+     "Per scegliere i gruppi muscolari usa gli ultimi 7 giorni; per carichi e progressione usa gli ultimi 42 giorni.",
+     "Conta come eseguite soltanto le serie effettivamente compilate; segnala i record anomali o incompleti.",
+     "Mantieni i target nutrizionali esistenti finché l'utente non approva un cambiamento."
+    ],
+    profile:profileResult.data||null,
+    training_context:trainingContext,
+    latest_checkin:fitnessCheckins[0]||null,
+    archive_period:{type:scope,from:from,to:to}
+   }
  };
 }
 $("downloadBackup").onclick=async function(){
@@ -780,7 +807,7 @@ $("downloadBackup").onclick=async function(){
   const data=await collectArchive(scope,date);
   const suffix=scope==="all"?"completo":(data.period.from+"_"+data.period.to);
   downloadJsonFile("tracciamento-"+suffix+".json",data);
-  $("backupStatus").textContent="Backup scaricato: "+data.workouts.length+" allenamenti, "+data.nutrition_meals.length+" pasti, "+data.nutrition_foods.length+" alimenti, "+(data.nutrition_recipes||[]).length+" ricette, "+(data.fitness_checkins||[]).length+" aggiornamenti fisici e "+(data.fitness_progress_photos||[]).length+" foto progressi.";
+  $("backupStatus").textContent="Backup scaricato: "+data.workouts.length+" allenamenti, "+data.nutrition_meals.length+" pasti, "+data.nutrition_foods.length+" alimenti, "+(data.nutrition_recipes||[]).length+" ricette, "+(data.fitness_checkins||[]).length+" aggiornamenti fisici e "+(data.fitness_progress_photos||[]).length+" foto progressi e "+(data.fitness_weight_entries||[]).length+" pesate.";
  }catch(e){$("backupStatus").textContent="Backup non riuscito: "+e.message+". Verifica di aver eseguito lo script SQL per Alimentazione e di aver effettuato l'accesso.";}
  finally{button.disabled=false;button.textContent="Scarica backup JSON";}
 };
@@ -938,6 +965,16 @@ async function importBackup(data){
    if(savedProfile.error)throw savedProfile.error;
   }
   const checkinIdMap={};
+  for(const weight of (data.fitness_weight_entries||[])){
+   const sourceId=String(weight.source_id||("backup-weight-"+weight.id));
+   const savedWeight=await supabaseClient.from("fitness_weight_entries").upsert({
+    user_id:currentUser.id,source_id:sourceId,measured_at:weight.measured_at||new Date().toISOString(),
+    weight_kg:weight.weight_kg,data_source:["measured","self_reported","estimated"].includes(weight.data_source)?weight.data_source:"self_reported",
+    context:weight.context||{},notes:weight.notes||null
+   },{onConflict:"user_id,source_id"});
+   if(savedWeight.error)throw savedWeight.error;
+  }
+
   for(const checkin of (data.fitness_checkins||[])){
    const sourceId=String(checkin.source_id||("backup-checkin-"+checkin.id));
    const payload={
@@ -1020,7 +1057,7 @@ async function importBackup(data){
  const photoRows=data.nutrition_food_photos||[];
  for(const photo of photoRows){
   const foodId=foodIdMap[photo.food_id]||photo.food_id;
-  if(!foodId||!photo.storage_path)continue;
+  if(!foodId)continue;
   let storagePath=photo.storage_path||("inline-data:"+foodId);
   let imageData=photo.image_data||null;
   if(photo.backup_image_data&&!imageData){

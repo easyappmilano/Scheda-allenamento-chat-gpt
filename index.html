@@ -523,6 +523,23 @@ async function collectAllUserData(){
  const foods=await collectPages(function(a,b){return supabaseClient.from("nutrition_foods").select("*").eq("user_id",uid).order("name").range(a,b);});
  return {workouts:workouts,workout_exercises:exercises,workout_sets:sets,nutrition_meals:meals,nutrition_entries:entries,nutrition_foods:foods};
 }
+
+async function collectWorkoutOnly(){
+ if(!currentUser)throw new Error("Accedi prima di esportare.");
+ const uid=currentUser.id;
+ const workouts=await collectPages(function(a,b){return supabaseClient.from("workouts").select("*").eq("user_id",uid).order("finished_at",{ascending:false}).range(a,b);});
+ const exercises=await collectPages(function(a,b){return supabaseClient.from("workout_exercises").select("*").eq("user_id",uid).order("exercise_order").range(a,b);});
+ const sets=await collectPages(function(a,b){return supabaseClient.from("workout_sets").select("*").eq("user_id",uid).order("set_number").range(a,b);});
+ return {workouts:workouts,workout_exercises:exercises,workout_sets:sets};
+}
+async function collectNutritionOnly(){
+ if(!currentUser)throw new Error("Accedi prima di esportare.");
+ const uid=currentUser.id;
+ const meals=await collectPages(function(a,b){return supabaseClient.from("nutrition_meals").select("*").eq("user_id",uid).order("meal_date",{ascending:false}).range(a,b);});
+ const entries=await collectPages(function(a,b){return supabaseClient.from("nutrition_entries").select("*").eq("user_id",uid).range(a,b);});
+ const foods=await collectPages(function(a,b){return supabaseClient.from("nutrition_foods").select("*").eq("user_id",uid).order("name").range(a,b);});
+ return {nutrition_meals:meals,nutrition_entries:entries,nutrition_foods:foods};
+}
 function nestedWorkoutHistory(data){
  return data.workouts.map(function(w){
   const children=data.workout_exercises.filter(function(e){return e.workout_id===w.id;}).map(function(e){
@@ -555,11 +572,12 @@ async function prepareAIReport(){
  $("downloadAIReport").disabled=true;
  $("aiTransferStatus").textContent="Recupero dello storico completo da Supabase…";
  try{
-  const data=await collectAllUserData();
   let context;
   if(domain==="workout"){
+   const data=await collectWorkoutOnly();
    context={workouts:nestedWorkoutHistory(data)};
   }else{
+   const data=await collectNutritionOnly();
    context={
     targets:FITNESS_TARGETS,
     meals:data.nutrition_meals.map(function(m){

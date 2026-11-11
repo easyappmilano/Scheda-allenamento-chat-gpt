@@ -155,7 +155,7 @@ $('restart').onclick=()=>{stopTimer('Pronto');try{localStorage.removeItem(DRAFT_
 
 // Salvataggio locale automatico della sessione in Chrome: ripristino anche dopo una chiusura accidentale.
 const DRAFT_KEY='tracciamento_allenamento_draft_v3';
-function saveDraft(){try{if(!activePlan)return;localStorage.setItem(DRAFT_KEY,JSON.stringify({activePlanId:activePlan.id,duration:$('duration').value,exercises,idx,updatedAt:new Date().toISOString()}))}catch(e){}}
+function saveDraft(){try{if(!activePlan)return;localStorage.setItem(DRAFT_KEY,JSON.stringify({activePlanId:activePlan.id,activePlanData:activePlan,duration:$('duration').value,exercises,idx,updatedAt:new Date().toISOString()}))}catch(e){}}
 function restoreDraft(){try{const raw=localStorage.getItem(DRAFT_KEY);if(!raw)return;const d=JSON.parse(raw),p=d.activePlanData||plans.find(x=>x.id===d.activePlanId);if(!p||!Array.isArray(d.exercises))return;activePlan=p;exercises=d.exercises;idx=Number(d.idx)||0;$('duration').value=d.duration||'';$('workoutTitle').textContent=`Scheda ${p.id} · ${p.title}`;$('workoutDuration').textContent='Sessione ripristinata dal salvataggio locale';$('workoutStatus').textContent='RIPRISTINATA';$('workoutStatus').className='tag';renderExercise();show('stepWorkout')}catch(e){}}
 setInterval(saveDraft,2000);window.addEventListener('pagehide',saveDraft);window.addEventListener('beforeunload',saveDraft);restoreDraft();
 </script>

@@ -717,17 +717,54 @@ async function importWorkoutBackup(workout){
   }
  }
 }
+async function importNestedNutritionMealBackup(meal){
+ const date=meal.meal_date||meal.date||localISODate();
+ const status=meal.status==="planned"?"planned":"consumed";
+ const payload={
+  user_id:currentUser.id,meal_date:date,meal_type:meal.meal_type||"Altro",
+  title:meal.title||null,status:status,notes:meal.notes||"Importazione storico"
+ };
+ if(meal.id)payload.id=meal.id;
+ const head=await supabaseClient.from("nutrition_meals").upsert(payload,{onConflict:"id"}).select("id").single();
+ if(head.error)throw head.error;
+ const mealId=head.data.id;
+ const del=await supabaseClient.from("nutrition_entries").delete().eq("meal_id",mealId);
+ if(del.error)throw del.error;
+ const rows=[];
+ for(let i=0;i<(meal.items||[]).length;i++){
+  const item=meal.items[i],qty=Number(item.quantity||0),factor=qty/100;
+  const k=Number(item.kcal_100g||0),p=Number(item.protein_100g||0),c=Number(item.carbs_100g||0),g=Number(item.fat_100g||0);
+  let foodId=null;
+  const cat=await supabaseClient.from("nutrition_foods").upsert({
+   user_id:currentUser.id,name:String(item.food_name||"Alimento"),category:item.category||null,
+   unit:item.unit||"g",kcal_100g:k,protein_100g:p,carbs_100g:c,fat_100g:g,
+   data_source:item.data_source||"estimated"
+  },{onConflict:"user_id,name"}).select("id").single();
+  if(!cat.error)foodId=cat.data.id;
+  const row={
+   meal_id:mealId,user_id:currentUser.id,food_id:foodId,
+   entry_date:date,meal_type:meal.meal_type||"Altro",status:status,
+   food_name:item.food_name||"Alimento",category:item.category||null,
+   quantity:qty,unit:item.unit||"g",kcal_100g:k,protein_100g:p,carbs_100g:c,fat_100g:g,
+   calories:Number((k*factor).toFixed(2)),protein_g:Number((p*factor).toFixed(2)),
+   carbs_g:Number((c*factor).toFixed(2)),fat_g:Number((g*factor).toFixed(2)),
+   data_source:["label","user_provided","estimated"].includes(item.data_source)?item.data_source:"estimated",
+   source_note:item.source_note||null
+  };
+  if(item.id)row.id=item.id;
+  rows.push(row);
+ }
+ if(rows.length){const ins=await supabaseClient.from("nutrition_entries").insert(rows);if(ins.error)throw ins.error;}
+}
 async function importDiaryBackup(data){
  if(!currentUser)throw new Error("Accedi prima di importare lo storico.");
  for(const w of (data.workouts||[]))await importWorkoutBackup(w);
  for(const m of (data.nutrition_meals||data.meals||[])){
   if(m.items){
-   await insertNutritionMeals({date:m.meal_date||m.date,summary:m.notes||"Importazione storico",meals:[m]});
+   await importNestedNutritionMealBackup(m);
   }else{
-   const ins=await supabaseClient.from("nutrition_meals").upsert({
-    id:m.id,user_id:currentUser.id,meal_date:m.meal_date,meal_type:m.meal_type,
-    title:m.title||null,status:m.status||"consumed",notes:m.notes||null
-   },{onConflict:"id"}).select("id").single();
+   const payload=Object.assign({},m,{user_id:currentUser.id});
+   const ins=await supabaseClient.from("nutrition_meals").upsert(payload,{onConflict:"id"}).select("id").single();
    if(ins.error)throw ins.error;
    const items=(data.nutrition_entries||[]).filter(function(e){return e.meal_id===m.id;});
    if(items.length){
@@ -738,9 +775,9 @@ async function importDiaryBackup(data){
   }
  }
  const foods=data.nutrition_foods||[];
- for(const f of foods){
-  const food=Object.assign({},f,{user_id:currentUser.id});delete food.id;
-  const result=await supabaseClient.from("nutrition_foods").upsert(food,{onConflict:"user_id,name"});
+ for(const food of foods){
+  const payload=Object.assign({},food,{user_id:currentUser.id});delete payload.id;
+  const result=await supabaseClient.from("nutrition_foods").upsert(payload,{onConflict:"user_id,name"});
   if(result.error)throw result.error;
  }
  await loadFoodDay();await loadWeeklyFoodSummary();await loadWeeklyTrainingSummary();

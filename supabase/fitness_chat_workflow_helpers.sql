@@ -1,3 +1,6 @@
+-- Index for the fitness_progress_photos.checkin_id foreign key.
+create index if not exists fitness_progress_photos_checkin_id_idx on public.fitness_progress_photos(checkin_id);
+
 -- ChatGPT companion helpers. Additive only; existing workout/nutrition tables are unchanged.
 -- The functions are SECURITY INVOKER and enforce the authenticated user's own user_id.
 

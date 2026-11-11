@@ -160,9 +160,11 @@ begin
   end if;
 end $$;
 
-create unique index if not exists nutrition_meals_user_source_uq
+drop index if exists public.nutrition_meals_user_source_uq;
+create unique index nutrition_meals_user_source_uq
   on public.nutrition_meals(user_id,source_id);
-create unique index if not exists nutrition_entries_user_source_uq
+drop index if exists public.nutrition_entries_user_source_uq;
+create unique index nutrition_entries_user_source_uq
   on public.nutrition_entries(user_id,source_id);
 create index if not exists nutrition_meals_user_date_idx
   on public.nutrition_meals(user_id,meal_date desc);

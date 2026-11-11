@@ -301,19 +301,28 @@ button:disabled{filter:saturate(.5);opacity:.42;transform:none;box-shadow:none}
 <section id="filesPage" class="app-page hidden">
   <h1>File JSON</h1>
   <div class="card">
-    <h2>Scarica il backup</h2>
-    <p class="small muted">Esporta i dati salvati nell'archivio. Alla fine della settimana scegli “Settimana” e inviami il file in questa conversazione.</p>
+    <h2>Esporta archivio JSON</h2>
+    <p class="small muted">Scegli quale archivio scaricare e per quale periodo. Regole e contesto utili per riprendere in una nuova chat vengono inclusi automaticamente.</p>
+    <div class="field"><label for="backupKind">Archivio</label>
+      <select id="backupKind">
+        <option value="all" selected>Completo</option>
+        <option value="training">Allenamenti</option>
+        <option value="nutrition">Alimentazione</option>
+        <option value="app">App e continuità chat</option>
+      </select>
+    </div>
     <div class="field"><label for="backupScope">Periodo</label>
       <select id="backupScope">
         <option value="day">Giorno</option>
         <option value="week" selected>Settimana (lunedì–domenica)</option>
         <option value="month">Mese</option>
+        <option value="year">Anno</option>
         <option value="all">Tutto lo storico</option>
       </select>
     </div>
     <div class="field"><label for="backupDate">Data di riferimento</label><input id="backupDate" type="date"></div>
-    <button id="downloadBackup" class="good full" type="button">Scarica backup JSON</button>
-    <p id="backupStatus" class="note">Il backup include allenamenti, serie, pasti, alimenti, ricette, riepiloghi, profilo, check-in, misurazioni, pesate, foto e dati di continuità.</p>
+    <button id="downloadBackup" class="good full" type="button">Scarica JSON completo</button>
+    <p id="backupStatus" class="note">Il JSON App conserva regole, decisioni e stato del progetto. Il JSON Completo comprende anche allenamenti, alimentazione e profilo.</p>
   </div>
   <div class="card">
     <h2>Ripristina un backup JSON</h2>
@@ -807,7 +816,7 @@ $("restart").onclick = function() {
 <script>
 
 const BACKUP_SCHEMA="fitness-diary-backup";
-const BACKUP_VERSION=4;
+const BACKUP_VERSION=5;
 const PENDING_PLAN_KEY="tracciamento_pending_workout_plan_v1";
 let pendingFileData=null;
 
@@ -1103,7 +1112,7 @@ async function downloadImageForBackup(bucket,path){
  return blobToDataUrl(result.data);
 }
 
-async function collectArchive(scope,date){
+async function collectArchive(scope,date,kind){
  if(!currentUser)throw new Error("Accedi a Supabase prima di esportare.");
  let from=null,to=null;
  if(scope==="day"){from=date;to=date;}
@@ -1112,6 +1121,8 @@ async function collectArchive(scope,date){
   from=localDateString(d);const last=new Date(d);last.setDate(last.getDate()+6);to=localDateString(last);
  }else if(scope==="month"){
   const d=new Date(date+"T12:00:00");from=localDateString(new Date(d.getFullYear(),d.getMonth(),1));to=localDateString(new Date(d.getFullYear(),d.getMonth()+1,0));
+ }else if(scope==="year"){
+  const d=new Date(date+"T12:00:00");from=localDateString(new Date(d.getFullYear(),0,1));to=localDateString(new Date(d.getFullYear(),11,31));
  }
  const uid=currentUser.id;
  let workoutsQuery=function(a,b){
@@ -1175,6 +1186,16 @@ async function collectArchive(scope,date){
   return q.range(a,b);
  });
  const foodPhotos=await readAllPages(function(a,b){return supabaseClient.from("nutrition_food_photos").select("*").eq("user_id",uid).range(a,b);});
+ const continuityRecordsRaw=await readAllPages(function(a,b){
+  return supabaseClient.from("fitness_continuity_records")
+   .select("record_key,domain,record_type,title,payload,recorded_at,source")
+   .eq("user_id",uid).order("recorded_at",{ascending:false}).range(a,b);
+ });
+ const continuityRecords=continuityRecordsRaw.filter(function(record){
+  if(!from||!["event","decision","update","log"].includes(record.record_type))return true;
+  const dateValue=String(record.recorded_at||"").slice(0,10);
+  return dateValue>=from&&dateValue<=to;
+ });
   const profileResult=await supabaseClient.from("fitness_profile").select("*").eq("user_id",uid).maybeSingle();
   const contextResult=await supabaseClient.rpc("get_training_context",{p_user_id:uid});
   if(contextResult.error)throw contextResult.error;

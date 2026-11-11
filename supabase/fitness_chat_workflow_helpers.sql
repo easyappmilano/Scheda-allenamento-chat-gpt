@@ -1,4 +1,5 @@
--- Idempotent ChatGPT companion helper functions; source definitions are the deployed definitions.
+-- Additive inline-photo support and deployed ChatGPT workflow helper definitions.
+alter table public.fitness_progress_photos add column if not exists image_data text;
 create index if not exists fitness_progress_photos_checkin_id_idx on public.fitness_progress_photos(checkin_id);
 
 CREATE OR REPLACE FUNCTION public.enqueue_workout_plan(p_user_id uuid, p_source_id text, p_plan_data jsonb)
@@ -242,9 +243,77 @@ end;
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.save_fitness_checkin_with_photos(p_user_id uuid, p_source_id text, p_checkin_date date, p_checkin_data jsonb DEFAULT '{}'::jsonb, p_physical_assessment text DEFAULT NULL::text, p_training_assessment text DEFAULT NULL::text, p_nutrition_assessment text DEFAULT NULL::text, p_recovery_assessment text DEFAULT NULL::text, p_next_period_focus jsonb DEFAULT '{}'::jsonb, p_notes text DEFAULT NULL::text, p_measurements jsonb DEFAULT '[]'::jsonb, p_photos jsonb DEFAULT '[]'::jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
+declare
+  v_result jsonb;
+  v_checkin_id uuid;
+  v_photo jsonb;
+  v_photo_count integer := 0;
+  v_idx integer := 0;
+  v_image_data text;
+  v_mime_type text;
+  v_photo_type text;
+  v_storage_path text;
+begin
+  if jsonb_typeof(coalesce(p_photos, '[]'::jsonb)) <> 'array' then
+    raise exception 'p_photos deve essere un array JSON';
+  end if;
+
+  v_result := public.save_fitness_checkin(
+    p_user_id,p_source_id,p_checkin_date,p_checkin_data,
+    p_physical_assessment,p_training_assessment,p_nutrition_assessment,
+    p_recovery_assessment,p_next_period_focus,p_notes,p_measurements
+  );
+  v_checkin_id := (v_result->>'checkin_id')::uuid;
+
+  for v_photo in select value from jsonb_array_elements(coalesce(p_photos,'[]'::jsonb))
+  loop
+    v_image_data := coalesce(v_photo->>'image_data',v_photo->>'backup_image_data');
+    if nullif(v_image_data,'') is null then
+      raise exception 'Ogni foto deve contenere image_data o backup_image_data';
+    end if;
+
+    v_mime_type := coalesce(nullif(v_photo->>'mime_type',''),'image/jpeg');
+    if v_mime_type not in ('image/jpeg','image/png','image/webp') then
+      raise exception 'Formato foto non supportato: %',v_mime_type;
+    end if;
+
+    v_photo_type := coalesce(nullif(v_photo->>'photo_type',''),'other');
+    if v_photo_type not in ('front','side','back','other') then
+      raise exception 'photo_type non valido: %',v_photo_type;
+    end if;
+
+    v_storage_path := 'inline-data:' || p_source_id || '-photo-' || v_idx::text || '-' || v_photo_type;
+    insert into public.fitness_progress_photos (
+      user_id,checkin_id,storage_path,photo_type,caption,mime_type,image_data
+    ) values (
+      p_user_id,v_checkin_id,v_storage_path,v_photo_type,
+      v_photo->>'caption',v_mime_type,v_image_data
+    )
+    on conflict (user_id,storage_path) do update set
+      checkin_id=excluded.checkin_id,
+      photo_type=excluded.photo_type,
+      caption=excluded.caption,
+      mime_type=excluded.mime_type,
+      image_data=excluded.image_data;
+    v_photo_count := v_photo_count + 1;
+    v_idx := v_idx + 1;
+  end loop;
+
+  return v_result || jsonb_build_object('photos_saved',v_photo_count);
+end;
+$function$
+;
+
 revoke all on function public.save_fitness_checkin(uuid,text,date,jsonb,text,text,text,text,jsonb,text,jsonb) from public, anon;
 grant execute on function public.save_fitness_checkin(uuid,text,date,jsonb,text,text,text,text,jsonb,text,jsonb) to authenticated;
 revoke all on function public.save_body_weight_entry(uuid,text,timestamptz,numeric,text,jsonb,text) from public, anon;
 grant execute on function public.save_body_weight_entry(uuid,text,timestamptz,numeric,text,jsonb,text) to authenticated;
 revoke all on function public.enqueue_workout_plan(uuid,text,jsonb) from public, anon;
 grant execute on function public.enqueue_workout_plan(uuid,text,jsonb) to authenticated;
+revoke all on function public.save_fitness_checkin_with_photos(uuid,text,date,jsonb,text,text,text,text,jsonb,text,jsonb,jsonb) from public, anon;
+grant execute on function public.save_fitness_checkin_with_photos(uuid,text,date,jsonb,text,text,text,text,jsonb,text,jsonb,jsonb) to authenticated;

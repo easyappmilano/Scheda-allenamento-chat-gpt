@@ -46,7 +46,7 @@ body{background:var(--bg);color:var(--ink)}.wrap{padding:16px 13px 106px;max-wid
         </div>
       </div>
       <div class="field"><label for="workoutRequest">Indicazioni aggiuntive (facoltative)</label><textarea id="workoutRequest" rows="2" placeholder="Es. oggi ho più energia, evita esercizi che sovraccaricano la schiena…"></textarea></div>
-      <div class="btnrow" style="margin-top:14px"><button id="showPlans" disabled>Vai a Chiedi a IA</button></div>
+      <div class="btnrow" style="margin-top:14px"><button id="showPlans" disabled>Mostra schede</button></div>
       <p class="note">I 5 minuti di riscaldamento vengono sempre sottratti dal tempo selezionato.</p>
     </div>
   <div class="card weekly-card">
@@ -58,7 +58,17 @@ body{background:var(--bg);color:var(--ink)}.wrap{padding:16px 13px 106px;max-wid
     <section id="stepPlans" class="hidden">
   <h1>Scheda pronta</h1>
   <p class="muted" id="planIntro">Controlla la proposta prima di avviare l'allenamento.</p>
-  <div class="options" id="planCards"></div>
+  <div class="options" id="planCards"></div><div class="card" id="manualWorkoutOption" style="margin-top:12px">
+    <h2>Scheda dai gruppi selezionati</h2>
+    <p class="small muted">Se hai scelto manualmente i gruppi, puoi avviare una scheda direttamente da qui. I carichi precedenti vengono letti dallo storico quando disponibili.</p>
+    <div id="manualWorkoutSummary" class="small muted"></div>
+    <button class="good" id="startManualWorkout" type="button">Avvia scheda selezionata</button>
+  </div>
+  <div class="card" style="margin-top:12px">
+    <h2>Vuoi una scheda personalizzata?</h2>
+    <p class="small muted">Puoi chiedere a IA di analizzare lo storico completo e preparare una scheda, poi importare il file di risposta dalla sezione centrale.</p>
+    <button class="secondary" id="sendWorkoutToIA" type="button">Prepara richiesta per Chiedi a IA</button>
+  </div>
   <div class="btnrow" style="margin-top:12px"><button class="secondary" id="backTime">Torna alla preparazione</button></div>
 </section>
     <section id="stepWorkout" class="hidden">
@@ -943,6 +953,197 @@ $("logoutBtn").addEventListener("click",function(){currentUser=null;});
 $("weeklyTrainingSummary").textContent="Accedi per caricare lo storico.";
 $("weeklyFoodSummary").textContent="Accedi per caricare lo storico.";
 appNavigate("training");
+
+</script>
+<script>
+
+let currentTrainingStep="stepTime";
+let manualWorkoutPlan=null;
+const GROUP_EXERCISES={
+ "Gambe":["Leg press 45°","Leg extension","Leg curl","Squat al multipower","Stacco rumeno","Calf raise"],
+ "Addome":["Crunch al cavo","Crunch su panca","Plank","Knees to chest alla sbarra"],
+ "Petto":["Panca piana bilanciere","Panca inclinata manubri","Chest press","Croci ai cavi"],
+ "Schiena":["Lat machine","Pulley","Rematore manubrio"],
+ "Spalle":["Shoulder press","Alzate laterali"],
+ "Bicipiti":["Curl bilanciere EZ","Curl manubri"],
+ "Tricipiti":["Pushdown cavo","French press"]
+};
+function showTrainingStep(id){
+ currentTrainingStep=id;
+ $("stepAI").classList.add("hidden");$("stepFood").classList.add("hidden");
+ $("trainingSection").classList.remove("hidden");
+ ["stepTime","stepPlans","stepWorkout","stepSummary"].forEach(function(name){
+  $(name).classList.toggle("hidden",name!==id);
+ });
+ document.querySelectorAll(".bottom-nav button").forEach(function(button){
+  button.classList.toggle("active",button.dataset.section==="training");
+ });
+ window.scrollTo({top:0,behavior:"smooth"});
+}
+show=function(id){
+ if(id==="stepAI"){appNavigate("ai");return;}
+ if(id==="stepFood"){appNavigate("food");return;}
+ if(["stepTime","stepPlans","stepWorkout","stepSummary"].includes(id)){
+  showTrainingStep(id);
+ }
+};
+appNavigate=function(section){
+ $("trainingSection").classList.toggle("hidden",section!=="training");
+ $("stepAI").classList.toggle("hidden",section!=="ai");
+ $("stepFood").classList.toggle("hidden",section!=="food");
+ document.querySelectorAll(".bottom-nav button").forEach(function(button){
+  button.classList.toggle("active",button.dataset.section===section);
+ });
+ if(section==="training"){
+  const view=currentTrainingStep||"stepTime";
+  ["stepTime","stepPlans","stepWorkout","stepSummary"].forEach(function(name){$(name).classList.toggle("hidden",name!==view);});
+  loadWeeklyTrainingSummary();
+ }
+ if(section==="food"){loadFoodDay();loadWeeklyFoodSummary();}
+ window.scrollTo({top:0,behavior:"smooth"});
+};
+function selectedManualGroups(){
+ return Array.from(document.querySelectorAll('input[name="muscleGroup"]:checked')).map(function(x){return x.value;});
+}
+async function getLatestManualReferences(){
+ const refs={};
+ if(!currentUser)return refs;
+ const w=await supabaseClient.from("workouts").select("id,finished_at").eq("user_id",currentUser.id).order("finished_at",{ascending:false}).limit(20);
+ if(w.error)throw w.error;
+ const ids=(w.data||[]).map(function(x){return x.id;});
+ if(!ids.length)return refs;
+ const ex=await supabaseClient.from("workout_exercises")
+  .select("id,workout_id,exercise_name").eq("user_id",currentUser.id).in("workout_id",ids);
+ if(ex.error)throw ex.error;
+ const exIds=(ex.data||[]).map(function(x){return x.id;});
+ if(!exIds.length)return refs;
+ const sr=await supabaseClient.from("workout_sets")
+  .select("workout_exercise_id,set_number,weight_kg,reps,rir,completed")
+  .eq("user_id",currentUser.id).in("workout_exercise_id",exIds).order("set_number");
+ if(sr.error)throw sr.error;
+ const dateById={};(w.data||[]).forEach(function(x){dateById[x.id]=x.finished_at;});
+ (ex.data||[]).forEach(function(e){
+  if(refs[e.exercise_name])return;
+  const sets=(sr.data||[]).filter(function(x){return x.workout_exercise_id===e.id;})
+   .filter(function(x){return x.completed!==false&&(x.weight_kg!==null||x.reps!==null);});
+  if(sets.length){
+   refs[e.exercise_name]=sets.map(function(x){
+    return (x.weight_kg!==null?x.weight_kg+" kg":"")+
+      (x.reps!==null?" ×"+x.reps:"")+
+      (x.rir!==null?" RIR "+x.rir:"");
+   }).join("; ")+" · "+(dateById[e.workout_id]?new Date(dateById[e.workout_id]).toLocaleDateString("it-IT"):"data non indicata");
+  }
+ });
+ return refs;
+}
+function prepareManualPlan(groups,refs){
+ const duration=$("duration").value==="more"?125:Number($("duration").value)-5;
+ const maxExercises=Math.max(groups.length,Math.min(8,Math.floor(duration/9)));
+ const selected=[];
+ groups.forEach(function(group){
+  const candidates=GROUP_EXERCISES[group]||[];
+  if(candidates.length)selected.push({name:candidates[0],group:group});
+ });
+ let index=1;
+ while(selected.length<maxExercises){
+  let added=false;
+  for(const group of groups){
+   const candidates=GROUP_EXERCISES[group]||[];
+   if(candidates[index]){
+    selected.push({name:candidates[index],group:group});added=true;
+    if(selected.length>=maxExercises)break;
+   }
+  }
+  if(!added)break;
+  index++;
+ }
+ return {
+  id:"MANUAL_"+Date.now(),
+  title:"Allenamento · "+groups.join(" + "),
+  focus:"Scheda costruita dai gruppi muscolari selezionati.",
+  selectionMode:"manual",requestedGroups:groups,aiGenerated:false,
+  ex:selected.map(function(item,i){
+   const core=item.group==="Addome";
+   const compound=["Leg press 45°","Squat al multipower","Stacco rumeno","Panca piana bilanciere","Panca inclinata manubri","Lat machine","Pulley","Shoulder press"].includes(item.name);
+   const num=core?2:3;
+   return [item.name,item.group,num,core?"10–15":compound?"8–12":"10–15",
+    core?45:compound?120:75,
+    refs[item.name]||"Nessun riferimento registrato",
+    "Esegui con tecnica controllata; mantieni il target RIR 1–3.",
+    "1–3"];
+  })
+ };
+}
+function startManualPlan(plan){
+ if(!currentUser){$("authMessage").textContent="Accedi prima di avviare e salvare l'allenamento.";$("authCard").scrollIntoView({behavior:"smooth"});return;}
+ activePlan=plan;
+ exercises=plan.ex.map(function(e,i){
+  return {id:i,name:e[0],group:e[1],sets:e[2],repRange:e[3],rest:e[4],previous:e[5],
+   coachingNote:e[6],targetRir:e[7],registered:false,removed:false,
+   data:Array.from({length:e[2]},function(){return {kg:"",reps:"",rir:""};}),notes:""};
+ });
+ idx=0;workoutSessionId=createSessionId();workoutStartedAt=new Date().toISOString();storeSessionMeta();
+ $("workoutTitle").textContent=plan.title;
+ $("workoutDuration").textContent="Tempo allenante: "+($("duration").value==="more"?"> 120":Number($("duration").value)-5)+" minuti · Riscaldamento: 5 minuti";
+ $("workoutStatus").textContent="IN CORSO";$("workoutStatus").className="tag";
+ renderExercise();show("stepWorkout");saveDraft();
+}
+$("showPlans").onclick=async function(){
+ if(!currentUser){$("authMessage").textContent="Accedi prima di preparare o avviare una scheda.";$("authCard").scrollIntoView({behavior:"smooth"});return;}
+ const mode=$("workoutMode").value;
+ const groups=selectedManualGroups();
+ if(mode==="manual"){
+  if(!groups.length){alert("Seleziona almeno un gruppo muscolare.");return;}
+  $("planIntro").textContent="Scheda pronta per i gruppi selezionati. Puoi iniziare subito oppure chiedere una proposta più personalizzata a IA.";
+  $("planCards").innerHTML="";
+  $("manualWorkoutOption").classList.remove("hidden");
+  $("manualWorkoutSummary").textContent="Gruppi: "+groups.join(", ")+" · Tempo allenante: "+(Number($("duration").value||55)-5)+" minuti.";
+  $("startManualWorkout").disabled=true;
+  try{
+   const refs=await getLatestManualReferences();
+   manualWorkoutPlan=prepareManualPlan(groups,refs);
+   $("manualWorkoutSummary").textContent=manualWorkoutPlan.ex.length+" esercizi · "+groups.join(", ")+" · Carichi precedenti recuperati quando disponibili.";
+   $("startManualWorkout").disabled=false;
+  }catch(e){
+   $("manualWorkoutSummary").textContent="Non è stato possibile leggere lo storico: "+e.message;
+   manualWorkoutPlan=prepareManualPlan(groups,{});
+   $("startManualWorkout").disabled=false;
+  }
+  show("stepPlans");
+  return;
+ }
+ $("manualWorkoutOption").classList.add("hidden");
+ const v=$("duration").value;
+ const gross=v==="more"?"> 120 minuti":v+" minuti";
+ const net=v==="more"?"> 115 minuti":(Number(v)-5)+" minuti";
+ $("planIntro").textContent="Schede pronte per iniziare. Per una scelta automatica basata su tutto lo storico, usa il pulsante Chiedi a IA in basso.";
+ $("planCards").innerHTML="";
+ plans.forEach(function(p){
+  const card=document.createElement("div");card.className="option";
+  card.innerHTML='<span class="pill '+(p.id==="A"?"good":"")+'">Scheda '+esc(p.id)+' · '+esc(p.badge)+'</span><h3>'+esc(p.title)+'</h3><p>'+esc(p.desc)+'</p><ul>'+p.list.map(function(x){return "<li>"+esc(x)+"</li>";}).join("")+'</ul><button data-plan="'+esc(p.id)+'">Seleziona scheda '+esc(p.id)+'</button>';
+  $("planCards").appendChild(card);
+ });
+ $("planCards").querySelectorAll("button[data-plan]").forEach(function(btn){
+  btn.onclick=function(){startPlan(btn.dataset.plan);};
+ });
+ $("manualWorkoutSummary").textContent="Schede pronte per gambe e addome. Per altri gruppi, seleziona la modalità manuale o usa Chiedi a IA.";
+ show("stepPlans");
+};
+$("startManualWorkout").onclick=function(){
+ if(manualWorkoutPlan)startManualPlan(manualWorkoutPlan);
+};
+$("sendWorkoutToIA").onclick=function(){
+ const mode=$("workoutMode").value,groups=selectedManualGroups();
+ pendingWorkoutParameters={
+  available_minutes:$("duration").value==="more"?130:Number($("duration").value),
+  warmup_minutes:5,training_minutes:$("duration").value==="more"?125:Number($("duration").value)-5,
+  selection_mode:mode,muscle_groups:mode==="manual"?groups:[]
+ };
+ $("aiAction").value="workout";$("aiDate").value=localISODate();
+ $("aiPrompt").value="Analizza tutto il mio storico e prepara una scheda. Tempo: "+pendingWorkoutParameters.available_minutes+" minuti, riscaldamento 5 minuti. "+(mode==="manual"?"Gruppi desiderati: "+groups.join(", "):"Scegli tu i gruppi più opportuni in base al recupero e alle ultime sessioni.")+" "+$("workoutRequest").value.trim();
+ appNavigate("ai");
+ $("aiTransferStatus").textContent="Richiesta pronta. Premi Download, allega il JSON a ChatGPT e poi carica qui la scheda che ti restituisco.";
+};
 
 </script>
 </body>

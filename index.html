@@ -62,9 +62,7 @@ h1{font-size:25px;line-height:1.15;margin:4px 0 8px}h2{font-size:18px;margin:0 0
 <section id="trainingEmpty">
   <h1>Allenamento</h1>
   <div class="card">
-    <h2>Nessuna scheda caricata</h2>
-    <p class="muted">La scheda viene preparata nella nostra chat. Qui importi il file JSON e registri la sessione, esercizio per esercizio.</p>
-    <button id="goFilesForWorkout" class="good" type="button">Importa la scheda da File JSON</button>
+    <p class="muted">La scheda approvata in ChatGPT comparirà qui automaticamente.</p>
   </div>
 </section>
 <section id="stepWorkout" class="hidden">
@@ -82,32 +80,31 @@ h1{font-size:25px;line-height:1.15;margin:4px 0 8px}h2{font-size:18px;margin:0 0
       <div class="navigation-below"><label for="navigationSelect">Vai direttamente a un esercizio</label><select id="navigationSelect"></select></div>
       <p class="note">Puoi cambiare esercizio dalla tendina in alto, navigare liberamente e registrare anche con una o più serie vuote. Le serie vuote restano non compilate e non vengono conteggiate come eseguite.</p>
     </div>
-    <div class="foot-actions"><button class="danger" id="finishWorkout">Termina allenamento</button></div>
+    <div class="foot-actions"><button class="danger" id="finishWorkout">Termina allenamento</button><p id="workoutSaveMessage" class="note hidden" role="status"></p></div>
   </section>
 <section id="stepSummary" class="hidden"><h1>Riepilogo allenamento</h1><p class="muted">Riepilogo dei dati inseriti nella sessione.</p><div class="card" id="summaryContent"></div><p class="note" id="syncStatus">Stato archiviazione Supabase non verificato.</p><div class="btnrow"><button class="ghost hidden" id="retrySync">Riprova sincronizzazione</button><button class="good" id="sendChatGPT">Copia riepilogo allenamento</button><button class="secondary" id="downloadSummary">Scarica riepilogo .txt</button><button id="restart">Nuovo allenamento</button></div><p class="note" id="shareStatus">Il riepilogo viene trasferito tramite condivisione o copia: poi incollalo in questa conversazione per aggiornare lo storico.</p></section>
 </div>
 <section id="foodPage" class="app-page hidden">
   <h1>Alimentazione</h1>
   <div class="card">
-    <div class="row between"><strong>Obiettivi giornalieri</strong><span class="pill">1.900 kcal</span></div>
+    <div class="row between"><strong>Resoconto giornaliero</strong><span class="pill">Target 1.900 kcal</span></div>
     <div class="macro-targets">
       <span>P <strong>129 g</strong></span><span>C <strong>192 g</strong></span><span>G <strong>68 g</strong></span>
     </div>
-    <div class="field"><label for="foodDate">Data</label><input id="foodDate" type="date"></div>
+    <div class="field"><label for="foodDate">Giornata</label><input id="foodDate" type="date"></div>
     <div id="foodTotals"></div>
   </div>
   <div class="card">
-    <div class="row between"><h2>Pasti registrati</h2><button id="refreshFood" class="ghost" type="button">Aggiorna</button></div>
-    <div id="foodEntries"><p class="small muted">Accedi e importa il diario da File JSON.</p></div>
-    <button id="goFilesForFood" class="secondary full" type="button">Importa un pasto da File JSON</button>
-  </div>
-  <div class="card weekly-card">
-    <details>
-      <summary><strong>Riepilogo ultimi 7 giorni</strong></summary>
-      <div id="weeklyFoodSummary" class="small muted">Accedi per caricare il riepilogo.</div>
-    </details>
+    <h2>Pasti della giornata</h2>
+    <div id="foodEntries"><p class="small muted">Il resoconto comparirà dopo l'invio e la registrazione della giornata in ChatGPT.</p></div>
   </div>
 </section>
+<div class="hidden" aria-hidden="true">
+  <button id="refreshFood" type="button"></button>
+  <button id="goFilesForFood" type="button"></button>
+  <button id="goFilesForWorkout" type="button"></button>
+  <div id="weeklyFoodSummary"></div>
+</div>
 <section id="filesPage" class="app-page hidden">
   <h1>File JSON</h1>
   <div class="card">
@@ -211,13 +208,15 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLI
 let currentUser = null;
 let workoutSessionId = null;
 let workoutStartedAt = null;
+let remoteWorkoutPlanId = null;
 
 function updateAuthUI(session) {
   currentUser = session && session.user ? session.user : null;
+  $("authCard").classList.toggle("hidden", !!currentUser);
   $("authForm").classList.toggle("hidden", !!currentUser);
   $("authLogged").classList.toggle("hidden", !currentUser);
   $("authUserEmail").textContent = currentUser ? currentUser.email : "";
-  if (currentUser) $("authMessage").textContent = "Accesso effettuato. Gli allenamenti completati saranno archiviati su Supabase.";
+  if (currentUser) $("authMessage").textContent = "Account collegato.";
 }
 async function initializeAuth() {
   const result = await supabaseClient.auth.getSession();
@@ -261,13 +260,15 @@ function storeSessionMeta() {
   try {
     localStorage.setItem(SESSION_META_KEY, JSON.stringify({
       sessionId: workoutSessionId,
-      startedAt: workoutStartedAt
+      startedAt: workoutStartedAt,
+      remotePlanId: remoteWorkoutPlanId
     }));
     const raw = localStorage.getItem(DRAFT_KEY);
     if (raw) {
       const draft = JSON.parse(raw);
       draft.sessionId = workoutSessionId;
       draft.startedAt = workoutStartedAt;
+      draft.remotePlanId = remoteWorkoutPlanId;
       localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
     }
   } catch (e) {}
@@ -281,6 +282,7 @@ function restoreSessionMeta() {
     if (typeof activePlan !== "undefined" && activePlan) {
       workoutSessionId = (draft && draft.sessionId) || (meta && meta.sessionId) || createSessionId();
       workoutStartedAt = (draft && draft.startedAt) || (meta && meta.startedAt) || (draft && draft.updatedAt) || new Date().toISOString();
+      remoteWorkoutPlanId = (draft && draft.remotePlanId) || (meta && meta.remotePlanId) || null;
       storeSessionMeta();
     }
   } catch (e) {}
@@ -394,67 +396,50 @@ async function persistWorkoutToSupabase() {
   return workoutId;
 }
 
-const originalFinishHandler = $("finishWorkout").onclick;
 $("finishWorkout").onclick = async function() {
-  if (!currentUser) {
-    $("authMessage").textContent = "Accedi per archiviare la sessione. I dati della sessione in corso restano salvati sul dispositivo.";
-    $("authCard").scrollIntoView({ behavior: "smooth" });
-    return;
+ if(!currentUser){
+  $("authCard").classList.remove("hidden");
+  $("authMessage").textContent="Accedi per salvare l'allenamento su Supabase.";
+  $("authCard").scrollIntoView({behavior:"smooth"});
+  return;
+ }
+ const button=this;
+ const message=$("workoutSaveMessage");
+ button.disabled=true;
+ button.textContent="Salvataggio…";
+ message.classList.add("hidden");
+ saveDraft();
+ try{
+  const savedWorkoutId=await persistWorkoutToSupabase();
+  if(remoteWorkoutPlanId){
+   const update=await supabaseClient.from("workout_plans").update({
+    status:"completed",completed_at:new Date().toISOString(),workout_id:savedWorkoutId
+   }).eq("id",remoteWorkoutPlanId).eq("user_id",currentUser.id);
+   if(update.error)throw update.error;
   }
-  const button = this;
-  button.disabled = true;
-  button.textContent = "Salvataggio su Supabase…";
-  let syncError = null;
-  try {
-    await persistWorkoutToSupabase();
-  } catch (error) {
-    syncError = error;
-  }
-  button.disabled = false;
-  button.textContent = "Termina allenamento";
-  originalFinishHandler.call(button);
-  $("finalSummaryText");
-  if (syncError) {
-    $("syncStatus").textContent = "Salvataggio online non riuscito: " + (syncError.message || String(syncError)) + ". I dati locali sono ancora disponibili: premi Riprova sincronizzazione.";
-    $("syncStatus").className = "note status bad";
-    $("retrySync").classList.remove("hidden");
-  } else {
-    $("syncStatus").textContent = "Allenamento archiviato correttamente su Supabase.";
-    $("syncStatus").className = "note status good";
-    $("retrySync").classList.add("hidden");
-  }
-  if (typeof finalSummaryText === "string") {
-    finalSummaryText += "\nID sessione: " + workoutSessionId;
-    finalSummaryText += syncError ? "\nArchiviazione Supabase: da completare" : "\nArchiviazione Supabase: completata";
-  }
+  try{
+   localStorage.removeItem(DRAFT_KEY);
+   localStorage.removeItem(SESSION_META_KEY);
+   localStorage.removeItem(PENDING_PLAN_KEY);
+  }catch(e){}
+  activePlan=null;exercises=[];idx=0;workoutSessionId=null;workoutStartedAt=null;remoteWorkoutPlanId=null;
+  stopTimer("Pronto");setTimer(120);
+  button.disabled=false;button.textContent="Termina allenamento";
+  message.classList.add("hidden");
+  showTrainingView("empty");
+  setTimeout(loadNextChatGPTWorkout,250);
+ }catch(error){
+  button.disabled=false;button.textContent="Riprova salvataggio";
+  message.textContent="Salvataggio non completato: "+(error.message||String(error))+". La sessione resta aperta e conservata sul dispositivo.";
+  message.classList.remove("hidden");
+ }
 };
-$("retrySync").onclick = async function() {
-  if (!currentUser) {
-    $("syncStatus").textContent = "Accedi nuovamente prima di riprovare.";
-    $("authCard").scrollIntoView({ behavior: "smooth" });
-    return;
-  }
-  this.disabled = true;
-  $("syncStatus").textContent = "Nuovo tentativo di sincronizzazione…";
-  try {
-    await persistWorkoutToSupabase();
-    $("syncStatus").textContent = "Allenamento archiviato correttamente su Supabase.";
-    $("syncStatus").className = "note status good";
-    $("retrySync").classList.add("hidden");
-    if (typeof finalSummaryText === "string") finalSummaryText = finalSummaryText.replace("Archiviazione Supabase: da completare", "Archiviazione Supabase: completata");
-  } catch (error) {
-    $("syncStatus").textContent = "Sincronizzazione non riuscita: " + (error.message || String(error));
-    $("syncStatus").className = "note status bad";
-  } finally {
-    this.disabled = false;
-  }
-};
-
 const originalRestartHandler = $("restart").onclick;
 $("restart").onclick = function() {
   originalRestartHandler.call(this);
   workoutSessionId = null;
   workoutStartedAt = null;
+  remoteWorkoutPlanId = null;
   try { localStorage.removeItem(SESSION_META_KEY); } catch (e) {}
 };
 </script>
@@ -607,9 +592,43 @@ function renderPendingWorkoutPreview(){
  showTrainingView("preview");
 }
 function startImportedWorkout(){
- if(!currentUser){$("authMessage").textContent="Accedi prima di iniziare: serve il collegamento Supabase per archiviare la sessione.";$("authCard").scrollIntoView({behavior:"smooth"});return;}
+ if(!currentUser){$("authMessage").textContent="Accedi prima di iniziare: serve il collegamento Supabase per archiviare la sessione.";$("authCard").classList.remove("hidden");$("authCard").scrollIntoView({behavior:"smooth"});return;}
  try{localStorage.removeItem(PENDING_PLAN_KEY);}catch(e){}
  applyNormalizedWorkout(activePlan,false);
+}
+let loadingChatGPTPlan=false;
+async function loadNextChatGPTWorkout(){
+ if(!currentUser||loadingChatGPTPlan||(activePlan&&workoutSessionId))return;
+ loadingChatGPTPlan=true;
+ try{
+  const found=await supabaseClient.from("workout_plans").select("*")
+   .eq("user_id",currentUser.id).eq("status","pending")
+   .order("created_at",{ascending:true}).limit(1).maybeSingle();
+  if(found.error)throw found.error;
+  if(!found.data)return;
+  const row=found.data;
+  const claimed=await supabaseClient.from("workout_plans")
+   .update({status:"in_progress",started_at:new Date().toISOString()})
+   .eq("id",row.id).eq("user_id",currentUser.id).eq("status","pending")
+   .select("id").maybeSingle();
+  if(claimed.error)throw claimed.error;
+  if(!claimed.data)return;
+  try{
+   const plan=normalizePlanData(row.plan_data);
+   remoteWorkoutPlanId=row.id;
+   applyNormalizedWorkout(plan,false);
+   storeSessionMeta();
+   saveDraft();
+  }catch(error){
+   await supabaseClient.from("workout_plans").update({status:"pending",started_at:null}).eq("id",row.id).eq("user_id",currentUser.id);
+   remoteWorkoutPlanId=null;
+   throw error;
+  }
+ }catch(error){
+  console.error("Caricamento scheda ChatGPT non riuscito:",error);
+ }finally{
+  loadingChatGPTPlan=false;
+ }
 }
 function safeNum(v){const n=Number(v);return Number.isFinite(n)?n:0;}
 function uuidLike(v){return typeof v==="string"&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);}
@@ -790,6 +809,7 @@ async function importOneNutritionMeal(m,index){
  const sourceId=String(m.source_id||m.id||("meal-import-"+date+"-"+index+"-"+(m.meal_type||"Altro")));
  const payload={
   user_id:currentUser.id,source_id:sourceId,meal_date:date,meal_type:m.meal_type||m.meal||"Altro",
+  recipe_id:m.recipe_id||null,
   title:m.title||m.meal||null,status:m.status==="planned"?"planned":"consumed",
   notes:m.notes||null,legacy_description:m.legacy_description||m.description||null,
   total_kcal:m.total_kcal==null?m.kcal==null?null:Number(m.kcal):Number(m.total_kcal),
@@ -853,8 +873,9 @@ async function importBackup(data){
 }
 function loadWorkoutPlanFile(data){
  const plan=normalizePlanData(data);
- applyNormalizedWorkout(plan,true);
- try{localStorage.setItem(PENDING_PLAN_KEY,JSON.stringify(plan));}catch(e){}
+ remoteWorkoutPlanId=null;
+ applyNormalizedWorkout(plan,false);
+ try{localStorage.removeItem(PENDING_PLAN_KEY);}catch(e){}
 }
 function normalizeArchiveIfOld(data){
  if(data.state&&Array.isArray(data.state.workouts))return normalizeOldMyFitBackup(data);
@@ -889,55 +910,90 @@ $("applyJsonImport").onclick=async function(){
  finally{button.disabled=false;button.textContent="Importa nell'app";}
 };
 async function loadFoodDay(){
- if(!currentUser){$("foodEntries").innerHTML='<p class="small muted">Accedi per consultare il diario alimentare.</p>';return;}
- const date=$("foodDate").value||localDateString();
- const m=await supabaseClient.from("nutrition_meals").select("*").eq("user_id",currentUser.id).eq("meal_date",date).order("created_at");
- if(m.error){$("foodEntries").textContent="Errore: "+m.error.message;return;}
- const meals=m.data||[],ids=meals.map(function(x){return x.id;});let entries=[];
- if(ids.length){
-  const e=await supabaseClient.from("nutrition_entries").select("*").eq("user_id",currentUser.id).in("meal_id",ids);
-  if(e.error){$("foodEntries").textContent="Errore: "+e.error.message;return;}entries=e.data||[];
+ if(!currentUser){
+  $("foodEntries").innerHTML='<p class="small muted">Accedi per consultare il resoconto.</p>';
+  return;
  }
- const totals={kcal:0,p:0,c:0,g:0},planned={kcal:0,p:0,c:0,g:0};
- meals.forEach(function(meal){
-  const rows=entries.filter(function(e){return e.meal_id===meal.id;});
-  const target=meal.status==="planned"?planned:totals;
-  target.kcal+=meal.total_kcal==null?rows.reduce(function(a,e){return a+safeNum(e.calories);},0):safeNum(meal.total_kcal);
-  target.p+=meal.total_protein_g==null?rows.reduce(function(a,e){return a+safeNum(e.protein_g);},0):safeNum(meal.total_protein_g);
-  target.c+=meal.total_carbs_g==null?rows.reduce(function(a,e){return a+safeNum(e.carbs_g);},0):safeNum(meal.total_carbs_g);
-  target.g+=meal.total_fat_g==null?rows.reduce(function(a,e){return a+safeNum(e.fat_g);},0):safeNum(meal.total_fat_g);
+ const date=$("foodDate").value||localDateString();
+ const [mealResult,summaryResult]=await Promise.all([
+  supabaseClient.from("nutrition_meals").select("*").eq("user_id",currentUser.id).eq("meal_date",date).eq("status","consumed").order("created_at"),
+  supabaseClient.from("daily_nutrition_summaries").select("*").eq("user_id",currentUser.id).eq("summary_date",date).maybeSingle()
+ ]);
+ if(mealResult.error){$("foodEntries").textContent="Errore: "+mealResult.error.message;return;}
+ if(summaryResult.error){$("foodEntries").textContent="Errore: "+summaryResult.error.message;return;}
+ const meals=mealResult.data||[];
+ const mealIds=meals.map(x=>x.id);
+ let entries=[];
+ if(mealIds.length){
+  const er=await supabaseClient.from("nutrition_entries").select("*").eq("user_id",currentUser.id).in("meal_id",mealIds);
+  if(er.error){$("foodEntries").textContent="Errore: "+er.error.message;return;}
+  entries=er.data||[];
+ }
+ const recipeIds=[...new Set(meals.map(m=>m.recipe_id).filter(Boolean))];
+ let recipes=[];
+ if(recipeIds.length){
+  const rr=await supabaseClient.from("nutrition_recipes").select("id,name,description,ingredients,instructions").eq("user_id",currentUser.id).in("id",recipeIds);
+  if(!rr.error)recipes=rr.data||[];
+ }
+ const foodIds=[...new Set(entries.map(e=>e.food_id).filter(Boolean))];
+ let photos=[];
+ if(foodIds.length){
+  const pr=await supabaseClient.from("nutrition_food_photos").select("food_id,storage_path,caption").eq("user_id",currentUser.id).in("food_id",foodIds);
+  if(!pr.error)photos=pr.data||[];
+ }
+ const photoByFood={};
+ for(const photo of photos){
+  const signed=await supabaseClient.storage.from("nutrition-food-photos").createSignedUrl(photo.storage_path,3600);
+  if(!signed.error&&signed.data?.signedUrl)photoByFood[photo.food_id]={url:signed.data.signedUrl,caption:photo.caption||""};
+ }
+ const calc={kcal:0,p:0,c:0,g:0};
+ meals.forEach(meal=>{
+  const rows=entries.filter(e=>e.meal_id===meal.id);
+  calc.kcal+=meal.total_kcal==null?rows.reduce((a,e)=>a+safeNum(e.calories),0):safeNum(meal.total_kcal);
+  calc.p+=meal.total_protein_g==null?rows.reduce((a,e)=>a+safeNum(e.protein_g),0):safeNum(meal.total_protein_g);
+  calc.c+=meal.total_carbs_g==null?rows.reduce((a,e)=>a+safeNum(e.carbs_g),0):safeNum(meal.total_carbs_g);
+  calc.g+=meal.total_fat_g==null?rows.reduce((a,e)=>a+safeNum(e.fat_g),0):safeNum(meal.total_fat_g);
  });
+ const summary=summaryResult.data;
+ const totals=summary?{
+  kcal:safeNum(summary.total_kcal),p:safeNum(summary.total_protein_g),
+  c:safeNum(summary.total_carbs_g),g:safeNum(summary.total_fat_g)
+ }:calc;
  function meter(label,value,target,unit){
   const pct=Math.max(0,Math.min(100,value/target*100));
   return '<div class="summaryline"><span>'+label+'</span><strong>'+value.toFixed(1)+' / '+target+' '+unit+'</strong></div><div class="progress"><div style="width:'+pct+'%"></div></div>';
  }
- $("foodTotals").innerHTML=meter("Calorie",totals.kcal,1900,"kcal")+meter("Proteine",totals.p,129,"g")+meter("Carboidrati",totals.c,192,"g")+meter("Grassi",totals.g,68,"g")+
-  '<p class="small muted">Residuo: '+(1900-totals.kcal).toFixed(0)+' kcal · P '+(129-totals.p).toFixed(1)+' g · C '+(192-totals.c).toFixed(1)+' g · G '+(68-totals.g).toFixed(1)+' g</p>'+
-  '<p class="small muted">Programmati (non conteggiati nei consumati): '+planned.kcal.toFixed(0)+' kcal · P '+planned.p.toFixed(1)+' · C '+planned.c.toFixed(1)+' · G '+planned.g.toFixed(1)+'</p>';
- if(!meals.length){$("foodEntries").innerHTML='<p class="small muted">Nessun pasto registrato in questa data. I pasti preparati qui in ChatGPT si importano dalla sezione File JSON.</p>';return;}
+ $("foodTotals").innerHTML=
+  '<p class="small '+(summary?'status good':'muted')+'">'+(summary?'Resoconto giornaliero ricevuto da ChatGPT':'Resoconto non ancora finalizzato')+'</p>'+
+  meter("Calorie",totals.kcal,1900,"kcal")+
+  meter("Proteine",totals.p,129,"g")+
+  meter("Carboidrati",totals.c,192,"g")+
+  meter("Grassi",totals.g,68,"g")+
+  (summary&&summary.notes?'<p class="small muted">'+esc(summary.notes)+'</p>':'');
+ if(!meals.length){
+  $("foodEntries").innerHTML='<p class="small muted">Nessun pasto registrato per questa giornata.</p>';
+  return;
+ }
  let out="";
- meals.forEach(function(meal){
-  const rows=entries.filter(function(e){return e.meal_id===meal.id;});
-  const kcal=meal.total_kcal==null?rows.reduce(function(a,e){return a+safeNum(e.calories);},0):safeNum(meal.total_kcal);
-  const desc=meal.legacy_description||rows.map(function(e){return e.food_name+" "+safeNum(e.quantity)+" "+e.unit;}).join(", ");
-  const macros=meal.total_kcal!=null?"Macro totali conservati dal registro":"Macro calcolati dagli alimenti";
-  out+='<div class="meal-row"><div class="meal-info"><strong>'+esc(meal.meal_type)+' · '+esc(meal.title||"")+'</strong><div class="small muted">'+esc(desc||"Dettaglio alimenti non disponibile")+'</div><div class="small muted">'+(meal.status==="planned"?"Programmato":"Consumato")+" · "+esc(macros)+'</div>'+
-   (meal.status==="planned"?'<button class="secondary small-action" data-consume="'+meal.id+'" style="margin-top:6px">Segna consumato</button>':'')+
-   '</div><div class="meal-macros"><strong>'+kcal.toFixed(0)+' kcal</strong><br><span class="muted">P '+(meal.total_protein_g==null?rows.reduce(function(a,e){return a+safeNum(e.protein_g);},0):safeNum(meal.total_protein_g)).toFixed(1)+' · C '+(meal.total_carbs_g==null?rows.reduce(function(a,e){return a+safeNum(e.carbs_g);},0):safeNum(meal.total_carbs_g)).toFixed(1)+' · G '+(meal.total_fat_g==null?rows.reduce(function(a,e){return a+safeNum(e.fat_g);},0):safeNum(meal.total_fat_g)).toFixed(1)+'</span><br><button class="danger small-action" data-delete-meal="'+meal.id+'" style="margin-top:6px">Elimina</button></div></div>';
+ meals.forEach(meal=>{
+  const rows=entries.filter(e=>e.meal_id===meal.id);
+  const recipe=recipes.find(r=>r.id===meal.recipe_id);
+  const kcal=meal.total_kcal==null?rows.reduce((a,e)=>a+safeNum(e.calories),0):safeNum(meal.total_kcal);
+  const p=meal.total_protein_g==null?rows.reduce((a,e)=>a+safeNum(e.protein_g),0):safeNum(meal.total_protein_g);
+  const c=meal.total_carbs_g==null?rows.reduce((a,e)=>a+safeNum(e.carbs_g),0):safeNum(meal.total_carbs_g);
+  const g=meal.total_fat_g==null?rows.reduce((a,e)=>a+safeNum(e.fat_g),0):safeNum(meal.total_fat_g);
+  const ingredients=rows.map(e=>{
+   const photo=e.food_id?photoByFood[e.food_id]:null;
+   const thumb=photo?'<img src="'+esc(photo.url)+'" alt="'+esc(photo.caption||e.food_name)+'" style="width:42px;height:42px;object-fit:cover;border-radius:8px;vertical-align:middle;margin-right:7px">':"";
+   return '<div class="small muted" style="display:flex;align-items:center;margin:4px 0">'+thumb+esc(e.food_name)+' · '+safeNum(e.quantity)+' '+esc(e.unit)+'</div>';
+  }).join("");
+  const recipeText=recipe?'<p class="small muted">'+esc(recipe.description||"Ricetta")+'</p>':"";
+  out+='<div class="meal-row"><div class="meal-info"><strong>'+esc(meal.meal_type)+' · '+esc(meal.title||"")+'</strong>'+
+   recipeText+
+   '<div class="small muted">'+esc(meal.legacy_description||"")+'</div>'+ingredients+
+   '</div><div class="meal-macros"><strong>'+kcal.toFixed(0)+' kcal</strong><br><span class="muted">P '+p.toFixed(1)+' · C '+c.toFixed(1)+' · G '+g.toFixed(1)+'</span></div></div>';
  });
  $("foodEntries").innerHTML=out;
- $("foodEntries").querySelectorAll("[data-consume]").forEach(function(btn){btn.onclick=async function(){
-  const u=await supabaseClient.from("nutrition_meals").update({status:"consumed"}).eq("id",btn.dataset.consume).eq("user_id",currentUser.id);
-  if(u.error){alert(u.error.message);return;}
-  const e=await supabaseClient.from("nutrition_entries").update({status:"consumed"}).eq("meal_id",btn.dataset.consume).eq("user_id",currentUser.id);
-  if(e.error)alert(e.error.message);
-  await loadFoodDay();await loadWeeklyFoodSummary();
- };});
- $("foodEntries").querySelectorAll("[data-delete-meal]").forEach(function(btn){btn.onclick=async function(){
-  if(!confirm("Eliminare questo pasto e i relativi alimenti dal diario?"))return;
-  const d=await supabaseClient.from("nutrition_meals").delete().eq("id",btn.dataset.deleteMeal).eq("user_id",currentUser.id);
-  if(d.error)alert(d.error.message);else loadFoodDay();
- };});
 }
 async function loadWeeklyFoodSummary(){
  if(!currentUser)return;
@@ -1035,11 +1091,11 @@ function renderPendingWorkoutPreview(){
 appNavigate=function(page){
  if(page==="training"){
   if(activePlan&&workoutSessionId)showTrainingView("workout");
-  else if(activePlan){showTrainingView("preview");renderPendingWorkoutPreview();}
   else showTrainingView("empty");
+  loadNextChatGPTWorkout();
  }else{
   hideAllMainPages();$(page==="food"?"foodPage":"filesPage").classList.remove("hidden");setActiveNav(page);
-  if(page==="food"){loadFoodDay();loadWeeklyFoodSummary();}
+  if(page==="food")loadFoodDay();
  }
  window.scrollTo({top:0,behavior:"smooth"});
 };
@@ -1079,10 +1135,21 @@ if(activePlan&&workoutSessionId){
 }else{
  let pending=null;try{pending=JSON.parse(localStorage.getItem(PENDING_PLAN_KEY)||"null");}catch(e){}
  if(pending){
-  activePlan=pending;exercises=pending.normalizedExercises||pending.ex.map(function(e,i){return {id:i,name:e[0],group:e[1],sets:e[2],repRange:e[3],rest:e[4],previous:e[5],coachingNote:e[6],targetRir:e[7],registered:false,removed:false,data:Array.from({length:e[2]},function(){return {kg:"",reps:"",rir:""};}),notes:""};});
-  renderPendingWorkoutPreview();showTrainingView("preview");
+  activePlan=pending;
+  exercises=pending.normalizedExercises||pending.ex.map(function(e,i){return {id:i,name:e[0],group:e[1],sets:e[2],repRange:e[3],rest:e[4],previous:e[5],coachingNote:e[6],targetRir:e[7],registered:false,removed:false,data:Array.from({length:e[2]},function(){return {kg:"",reps:"",rir:""};}),notes:""};});
+  remoteWorkoutPlanId=null;
+  applyNormalizedWorkout(pending,false);
+  try{localStorage.removeItem(PENDING_PLAN_KEY);}catch(e){}
  }else showTrainingView("empty");
 }
+supabaseClient.auth.getSession().then(function(r){
+ if(r.data&&r.data.session){currentUser=r.data.session.user;loadNextChatGPTWorkout();}
+});
+setInterval(loadNextChatGPTWorkout,6000);
+document.addEventListener("visibilitychange",function(){
+ if(document.visibilityState==="hidden")saveDraft();
+ else loadNextChatGPTWorkout();
+});
 
 </script>
 </body>

@@ -1253,6 +1253,8 @@ begin
 end;
 $function$
 ;
+
+;
 ;
 
 CREATE OR REPLACE FUNCTION public.save_body_weight_entry(p_user_id uuid, p_source_id text, p_measured_at timestamp with time zone, p_weight_kg numeric, p_data_source text DEFAULT 'self_reported'::text, p_context jsonb DEFAULT '{}'::jsonb, p_notes text DEFAULT NULL::text)
@@ -1291,6 +1293,8 @@ begin
   return jsonb_build_object('weight_entry_id',v_id,'weight_kg',p_weight_kg);
 end;
 $function$
+;
+
 ;
 ;
 
@@ -1420,6 +1424,8 @@ begin
   );
 end;
 $function$
+;
+
 ;
 ;
 
@@ -1750,6 +1756,8 @@ begin
 end;
 $function$
 ;
+
+;
 ;
 
 revoke all on function public.save_fitness_checkin(uuid,text,date,jsonb,text,text,text,text,jsonb,text,jsonb) from public, anon;
@@ -1760,3 +1768,29 @@ revoke all on function public.enqueue_workout_plan(uuid,text,jsonb) from public,
 grant execute on function public.enqueue_workout_plan(uuid,text,jsonb) to authenticated;
 revoke all on function public.save_fitness_checkin_with_photos(uuid,text,date,jsonb,text,text,text,text,jsonb,text,jsonb,jsonb) from public, anon;
 grant execute on function public.save_fitness_checkin_with_photos(uuid,text,date,jsonb,text,text,text,text,jsonb,text,jsonb,jsonb) to authenticated;
+
+
+-- Check and cap inline progress photo payloads.
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'fitness_progress_photos_image_data_format_check'
+      and conrelid = 'public.fitness_progress_photos'::regclass
+  ) then
+    alter table public.fitness_progress_photos
+      add constraint fitness_progress_photos_image_data_format_check
+      check (
+        image_data is null
+        or (
+          length(image_data) <= 14000000
+          and (
+            (mime_type = 'image/jpeg' and image_data like 'data:image/jpeg;base64,%')
+            or (mime_type = 'image/png' and image_data like 'data:image/png;base64,%')
+            or (mime_type = 'image/webp' and image_data like 'data:image/webp;base64,%')
+          )
+        )
+      );
+  end if;
+end;
+$$;

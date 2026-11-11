@@ -16,6 +16,17 @@ h1{font-size:25px;line-height:1.15;margin:4px 0 8px}h2{font-size:18px;margin:0 0
 <body>
 <div class="wrap">
   <div class="top"><div class="brand">TRACCIAMENTO · ALLENAMENTO</div><span class="tag">SCHEDA INTERATTIVA</span></div>
+  <div class="card" id="authCard">
+    <div id="authForm">
+      <h2>Accesso personale</h2>
+      <p class="muted small">Accedi con l'utente creato in Supabase per archiviare gli allenamenti nel tuo database.</p>
+      <div class="field"><label for="authEmail">Email</label><input id="authEmail" type="email" autocomplete="username" placeholder="La tua email"></div>
+      <div class="field"><label for="authPassword">Password</label><input id="authPassword" type="password" autocomplete="current-password" placeholder="La tua password"></div>
+      <button id="loginBtn" class="good" type="button">Accedi</button>
+    </div>
+    <div id="authLogged" class="hidden"><div class="row between"><div><strong>Account collegato</strong><div class="small muted" id="authUserEmail"></div></div><button id="logoutBtn" class="ghost" type="button">Esci</button></div></div>
+    <p class="note" id="authMessage">Accedi per attivare l'archiviazione online.</p>
+  </div>
   <section id="stepTime">
     <h1>Quanto tempo hai oggi?</h1>
     <p class="muted">Analizzo internamente lo storico, il recupero e i gruppi muscolari. Ti mostro tre alternative senza riportare l'elenco delle vecchie sessioni.</p>
@@ -43,9 +54,10 @@ h1{font-size:25px;line-height:1.15;margin:4px 0 8px}h2{font-size:18px;margin:0 0
     </div>
     <div class="foot-actions"><button class="danger" id="finishWorkout">Termina allenamento</button></div>
   </section>
-  <section id="stepSummary" class="hidden"><h1>Riepilogo allenamento</h1><p class="muted">Riepilogo dei dati inseriti nella sessione.</p><div class="card" id="summaryContent"></div><div class="btnrow"><button class="good" id="sendChatGPT">Copia riepilogo per ChatGPT</button><button class="secondary" id="downloadSummary">Scarica riepilogo .txt</button><button id="restart">Nuovo allenamento</button></div><p class="note" id="shareStatus">Il riepilogo viene trasferito tramite condivisione o copia: poi incollalo in questa conversazione per aggiornare lo storico.</p></section>
+  <section id="stepSummary" class="hidden"><h1>Riepilogo allenamento</h1><p class="muted">Riepilogo dei dati inseriti nella sessione.</p><div class="card" id="summaryContent"></div><p class="note" id="syncStatus">Stato archiviazione Supabase non verificato.</p><div class="btnrow"><button class="ghost hidden" id="retrySync">Riprova sincronizzazione</button><button class="good" id="sendChatGPT">Copia riepilogo per ChatGPT</button><button class="secondary" id="downloadSummary">Scarica riepilogo .txt</button><button id="restart">Nuovo allenamento</button></div><p class="note" id="shareStatus">Il riepilogo viene trasferito tramite condivisione o copia: poi incollalo in questa conversazione per aggiornare lo storico.</p></section>
   <p class="note" style="text-align:center;margin-top:22px">I dati inseriti restano in questa pagina finché non la ricarichi o la chiudi. Il timer è locale, reale e richiede che questa pagina resti aperta.</p>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const $=id=>document.getElementById(id);
 const plans=[
@@ -102,5 +114,257 @@ const DRAFT_KEY='tracciamento_allenamento_draft_v3';
 function saveDraft(){try{if(!activePlan)return;localStorage.setItem(DRAFT_KEY,JSON.stringify({activePlanId:activePlan.id,duration:$('duration').value,exercises,idx,updatedAt:new Date().toISOString()}))}catch(e){}}
 function restoreDraft(){try{const raw=localStorage.getItem(DRAFT_KEY);if(!raw)return;const d=JSON.parse(raw),p=plans.find(x=>x.id===d.activePlanId);if(!p||!Array.isArray(d.exercises))return;activePlan=p;exercises=d.exercises;idx=Number(d.idx)||0;$('duration').value=d.duration||'';$('workoutTitle').textContent=`Scheda ${p.id} · ${p.title}`;$('workoutDuration').textContent='Sessione ripristinata dal salvataggio locale';$('workoutStatus').textContent='RIPRISTINATA';$('workoutStatus').className='tag';renderExercise();show('stepWorkout')}catch(e){}}
 setInterval(saveDraft,2000);window.addEventListener('pagehide',saveDraft);window.addEventListener('beforeunload',saveDraft);restoreDraft();
+</script>
+
+<script>
+const SUPABASE_URL = "https://nejhzeixeptfkyxeliuw.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_Hik7yeiC-Jx6NYyNJZP2og_lVEcaVVV";
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+});
+let currentUser = null;
+let workoutSessionId = null;
+let workoutStartedAt = null;
+
+function updateAuthUI(session) {
+  currentUser = session && session.user ? session.user : null;
+  $("authForm").classList.toggle("hidden", !!currentUser);
+  $("authLogged").classList.toggle("hidden", !currentUser);
+  $("authUserEmail").textContent = currentUser ? currentUser.email : "";
+  if (currentUser) $("authMessage").textContent = "Accesso effettuato. Gli allenamenti completati saranno archiviati su Supabase.";
+}
+async function initializeAuth() {
+  const result = await supabaseClient.auth.getSession();
+  if (result.error) $("authMessage").textContent = "Errore nel controllo dell'accesso: " + result.error.message;
+  updateAuthUI(result.data ? result.data.session : null);
+  supabaseClient.auth.onAuthStateChange((_event, session) => updateAuthUI(session));
+}
+$("loginBtn").onclick = async () => {
+  const email = $("authEmail").value.trim();
+  const password = $("authPassword").value;
+  if (!email || !password) { $("authMessage").textContent = "Inserisci email e password."; return; }
+  $("loginBtn").disabled = true;
+  $("authMessage").textContent = "Accesso in corso…";
+  const result = await supabaseClient.auth.signInWithPassword({ email, password });
+  $("loginBtn").disabled = false;
+  if (result.error) { $("authMessage").textContent = "Accesso non riuscito: " + result.error.message; return; }
+  updateAuthUI(result.data.session);
+  $("authPassword").value = "";
+};
+$("logoutBtn").onclick = async () => {
+  const result = await supabaseClient.auth.signOut();
+  $("authMessage").textContent = result.error ? "Errore durante l'uscita: " + result.error.message : "Sei uscito dal tuo account.";
+};
+initializeAuth();
+
+function numericOrNull(value) {
+  const s = String(value == null ? "" : value).trim().replace(",", ".");
+  if (!s) return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+function createSessionId() {
+  if (window.crypto && typeof window.crypto.randomUUID === "function") return window.crypto.randomUUID();
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === "x" ? r : (r & 3 | 8)).toString(16);
+  });
+}
+const SESSION_META_KEY = "tracciamento_allenamento_cloud_session_v1";
+function storeSessionMeta() {
+  try {
+    localStorage.setItem(SESSION_META_KEY, JSON.stringify({
+      sessionId: workoutSessionId,
+      startedAt: workoutStartedAt
+    }));
+    const raw = localStorage.getItem(DRAFT_KEY);
+    if (raw) {
+      const draft = JSON.parse(raw);
+      draft.sessionId = workoutSessionId;
+      draft.startedAt = workoutStartedAt;
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    }
+  } catch (e) {}
+}
+function restoreSessionMeta() {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    const draft = raw ? JSON.parse(raw) : null;
+    const metaRaw = localStorage.getItem(SESSION_META_KEY);
+    const meta = metaRaw ? JSON.parse(metaRaw) : null;
+    if (typeof activePlan !== "undefined" && activePlan) {
+      workoutSessionId = (draft && draft.sessionId) || (meta && meta.sessionId) || createSessionId();
+      workoutStartedAt = (draft && draft.startedAt) || (meta && meta.startedAt) || (draft && draft.updatedAt) || new Date().toISOString();
+      storeSessionMeta();
+    }
+  } catch (e) {}
+}
+restoreSessionMeta();
+
+const originalSaveDraft = saveDraft;
+saveDraft = function() {
+  originalSaveDraft();
+  storeSessionMeta();
+};
+
+$("showPlans").addEventListener("click", function(event) {
+  if (!currentUser) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    $("authMessage").textContent = "Accedi prima di preparare la sessione: serve il tuo account per archiviare l'allenamento.";
+    $("authCard").scrollIntoView({ behavior: "smooth" });
+  }
+}, true);
+
+$("planCards").addEventListener("click", function(event) {
+  const button = event.target.closest("button[data-plan]");
+  if (!button) return;
+  if (!currentUser) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    $("authMessage").textContent = "Accedi prima di iniziare l'allenamento.";
+    $("authCard").scrollIntoView({ behavior: "smooth" });
+    return;
+  }
+  workoutSessionId = createSessionId();
+  workoutStartedAt = new Date().toISOString();
+  storeSessionMeta();
+}, true);
+
+async function persistWorkoutToSupabase() {
+  if (!currentUser) throw new Error("Accedi al tuo account prima di sincronizzare.");
+  if (!activePlan || !workoutSessionId) throw new Error("Non trovo l'identificativo della sessione.");
+  const startedAt = workoutStartedAt || new Date().toISOString();
+  const finishedAt = new Date().toISOString();
+  const durationSeconds = Math.max(0, Math.round((Date.parse(finishedAt) - Date.parse(startedAt)) / 1000));
+  const workoutResult = await supabaseClient.from("workouts").upsert({
+    user_id: currentUser.id,
+    client_session_id: workoutSessionId,
+    started_at: startedAt,
+    finished_at: finishedAt,
+    duration_seconds: durationSeconds,
+    status: "completed",
+    plan_id: activePlan.id,
+    plan_title: activePlan.title,
+    selected_duration: $("duration").value || null
+  }, { onConflict: "user_id,client_session_id" }).select("id").single();
+  if (workoutResult.error) throw workoutResult.error;
+  const workoutId = workoutResult.data.id;
+
+  const deleteResult = await supabaseClient.from("workout_exercises").delete().eq("workout_id", workoutId);
+  if (deleteResult.error) throw deleteResult.error;
+
+  const exerciseRows = exercises.map((exercise, index) => ({
+    workout_id: workoutId,
+    user_id: currentUser.id,
+    exercise_name: exercise.name,
+    muscle_group: exercise.group,
+    exercise_order: index,
+    notes: exercise.notes || null,
+    removed: !!exercise.removed,
+    registered: !!exercise.registered,
+    rep_range: exercise.repRange || null,
+    planned_sets: Number.isFinite(Number(exercise.sets)) ? Number(exercise.sets) : null,
+    rest_seconds: Number.isFinite(Number(exercise.rest)) ? Number(exercise.rest) : null,
+    previous_reference: exercise.previous || null
+  }));
+  const exerciseIdsByOrder = {};
+  if (exerciseRows.length) {
+    const exerciseResult = await supabaseClient.from("workout_exercises").insert(exerciseRows).select("id,exercise_order");
+    if (exerciseResult.error) throw exerciseResult.error;
+    (exerciseResult.data || []).forEach(row => { exerciseIdsByOrder[row.exercise_order] = row.id; });
+  }
+
+  const setRows = [];
+  exercises.forEach((exercise, index) => {
+    const exerciseId = exerciseIdsByOrder[index];
+    if (!exerciseId) return;
+    (exercise.data || []).forEach((set, setIndex) => {
+      const kg = numericOrNull(set.kg);
+      const reps = numericOrNull(set.reps);
+      const rir = numericOrNull(set.rir);
+      setRows.push({
+        workout_id: workoutId,
+        workout_exercise_id: exerciseId,
+        user_id: currentUser.id,
+        set_number: setIndex + 1,
+        weight_kg: kg,
+        reps: reps === null ? null : Math.round(reps),
+        rir: rir,
+        rest_seconds: Number.isFinite(Number(exercise.rest)) ? Number(exercise.rest) : null,
+        completed: kg !== null || reps !== null || rir !== null
+      });
+    });
+  });
+  if (setRows.length) {
+    const setResult = await supabaseClient.from("workout_sets").insert(setRows);
+    if (setResult.error) throw setResult.error;
+  }
+  return workoutId;
+}
+
+const originalFinishHandler = $("finishWorkout").onclick;
+$("finishWorkout").onclick = async function() {
+  if (!currentUser) {
+    $("authMessage").textContent = "Accedi per archiviare la sessione. I dati della sessione in corso restano salvati sul dispositivo.";
+    $("authCard").scrollIntoView({ behavior: "smooth" });
+    return;
+  }
+  const button = this;
+  button.disabled = true;
+  button.textContent = "Salvataggio su Supabase…";
+  let syncError = null;
+  try {
+    await persistWorkoutToSupabase();
+  } catch (error) {
+    syncError = error;
+  }
+  button.disabled = false;
+  button.textContent = "Termina allenamento";
+  originalFinishHandler.call(button);
+  $("finalSummaryText");
+  if (syncError) {
+    $("syncStatus").textContent = "Salvataggio online non riuscito: " + (syncError.message || String(syncError)) + ". I dati locali sono ancora disponibili: premi Riprova sincronizzazione.";
+    $("syncStatus").className = "note status bad";
+    $("retrySync").classList.remove("hidden");
+  } else {
+    $("syncStatus").textContent = "Allenamento archiviato correttamente su Supabase.";
+    $("syncStatus").className = "note status good";
+    $("retrySync").classList.add("hidden");
+  }
+  if (typeof finalSummaryText === "string") {
+    finalSummaryText += "\nID sessione: " + workoutSessionId;
+    finalSummaryText += syncError ? "\nArchiviazione Supabase: da completare" : "\nArchiviazione Supabase: completata";
+  }
+};
+$("retrySync").onclick = async function() {
+  if (!currentUser) {
+    $("syncStatus").textContent = "Accedi nuovamente prima di riprovare.";
+    $("authCard").scrollIntoView({ behavior: "smooth" });
+    return;
+  }
+  this.disabled = true;
+  $("syncStatus").textContent = "Nuovo tentativo di sincronizzazione…";
+  try {
+    await persistWorkoutToSupabase();
+    $("syncStatus").textContent = "Allenamento archiviato correttamente su Supabase.";
+    $("syncStatus").className = "note status good";
+    $("retrySync").classList.add("hidden");
+    if (typeof finalSummaryText === "string") finalSummaryText = finalSummaryText.replace("Archiviazione Supabase: da completare", "Archiviazione Supabase: completata");
+  } catch (error) {
+    $("syncStatus").textContent = "Sincronizzazione non riuscita: " + (error.message || String(error));
+    $("syncStatus").className = "note status bad";
+  } finally {
+    this.disabled = false;
+  }
+};
+
+const originalRestartHandler = $("restart").onclick;
+$("restart").onclick = function() {
+  originalRestartHandler.call(this);
+  workoutSessionId = null;
+  workoutStartedAt = null;
+  try { localStorage.removeItem(SESSION_META_KEY); } catch (e) {}
+};
 </script>
 </body></html>

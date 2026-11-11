@@ -1131,7 +1131,7 @@ async function collectContinuityArchive(scope,date){
  });
  const filtered=records.filter(function(record){
   if(!from||!["event","decision","update","log"].includes(record.record_type))return true;
-  const d=String(record.recorded_at||"").slice(0,10);
+  const d=String((record.payload&&record.payload.date)||record.recorded_at||"").slice(0,10);
   return d>=from&&d<=to;
  });
  const base={
@@ -1229,7 +1229,7 @@ async function collectArchive(scope,date,kind){
  });
  const continuityRecords=continuityRecordsRaw.filter(function(record){
   if(!from||!["event","decision","update","log"].includes(record.record_type))return true;
-  const dateValue=String(record.recorded_at||"").slice(0,10);
+  const dateValue=String((record.payload&&record.payload.date)||record.recorded_at||"").slice(0,10);
   return dateValue>=from&&dateValue<=to;
  });
   const profileResult=await supabaseClient.from("fitness_profile").select("*").eq("user_id",uid).maybeSingle();

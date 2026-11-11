@@ -1,3 +1,13 @@
+-- Estensioni della scheda allenamento per conservare i dettagli generati in ChatGPT.
+alter table public.workouts
+  add column if not exists ai_generated boolean not null default false,
+  add column if not exists selection_mode text,
+  add column if not exists requested_groups text[];
+
+alter table public.workout_exercises
+  add column if not exists coaching_note text,
+  add column if not exists target_rir text;
+
 -- Tracciamento personale: schema alimentazione + campi AI allenamento
 -- Eseguire in Supabase > SQL Editor > New query.
 

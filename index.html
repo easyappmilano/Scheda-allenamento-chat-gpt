@@ -928,7 +928,10 @@ async function loadFoodDay(){
  $("foodEntries").innerHTML=out;
  $("foodEntries").querySelectorAll("[data-consume]").forEach(function(btn){btn.onclick=async function(){
   const u=await supabaseClient.from("nutrition_meals").update({status:"consumed"}).eq("id",btn.dataset.consume).eq("user_id",currentUser.id);
-  if(u.error)alert(u.error.message);else loadFoodDay();
+  if(u.error){alert(u.error.message);return;}
+  const e=await supabaseClient.from("nutrition_entries").update({status:"consumed"}).eq("meal_id",btn.dataset.consume).eq("user_id",currentUser.id);
+  if(e.error)alert(e.error.message);
+  await loadFoodDay();await loadWeeklyFoodSummary();
  };});
  $("foodEntries").querySelectorAll("[data-delete-meal]").forEach(function(btn){btn.onclick=async function(){
   if(!confirm("Eliminare questo pasto e i relativi alimenti dal diario?"))return;
@@ -1017,7 +1020,8 @@ function renderPendingWorkoutPreview(){
  const list=activePlan.ex||[];
  preview.innerHTML="<h2>"+esc(activePlan.title)+"</h2>"+
   "<p class='small muted'>"+esc(activePlan.focus||activePlan.desc||"Scheda pronta per l'esecuzione.")+"</p>"+
-  "<p class='small muted'>Riscaldamento: 5 minuti · "+list.length+" esercizi</p>"+
+  "<p class='small muted'>Riscaldamento: "+Number(activePlan.warmupMinutes||5)+" minuti · "+list.length+" esercizi</p>"+
+  "<p class='small muted'>"+esc(activePlan.warmupNotes||"Riscaldamento generale e specifico.")+"</p>"+
   "<ol>"+list.map(function(e){return "<li>"+esc(e[0])+" — "+esc(e[2])+" serie · "+esc(e[3])+" · recupero "+esc(e[4])+" s</li>";}).join("")+"</ol>"+
   "<button id='startImportedWorkout' class='good full' type='button'>Inizia allenamento</button>"+
   "<button id='discardImportedWorkout' class='ghost full' type='button' style='margin-top:8px'>Scarta scheda</button>";

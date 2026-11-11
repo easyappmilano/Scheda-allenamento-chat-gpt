@@ -181,6 +181,11 @@ weight_trend as (
     round(avg(weight_kg),2) as average_kg,
     round((array_agg(weight_kg order by measured_at desc))[1],2) as latest_kg
   from weight_entries_7d
+  where coalesce(
+    (context->>'include_in_average')::boolean,
+    (context->>'standardized')::boolean,
+    true
+  ) = true
 ),
 nutrition_days as (
   select ns.summary_date,ns.total_kcal,ns.total_protein_g,ns.total_carbs_g,ns.total_fat_g
@@ -289,6 +294,7 @@ select jsonb_build_object(
   ), '{}'::jsonb)
 );
 $function$
+;
 
 revoke all on function public.get_training_context(uuid, timestamptz) from public;
 revoke all on function public.get_training_context(uuid, timestamptz) from anon;

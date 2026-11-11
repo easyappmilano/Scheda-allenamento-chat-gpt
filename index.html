@@ -242,13 +242,25 @@ button:disabled{filter:saturate(.5);opacity:.42;transform:none;box-shadow:none}
 <div id="trainingPage" class="app-page">
 <section id="trainingEmpty">
   <h1>Allenamento</h1>
+  <div id="completedWorkoutNotice" class="card hidden" role="status" aria-live="polite">
+    <h2>Allenamento terminato</h2>
+    <p id="completedWorkoutMessage" class="muted">Allenamento salvato. La prossima scheda verrà caricata soltanto su tua richiesta.</p>
+    <button id="loadNextWorkoutButton" class="good full" type="button">Carica prossima scheda</button>
+  </div>
   <div class="card">
-    <p class="muted">La scheda approvata in ChatGPT comparirà qui automaticamente.</p>
+    <p class="muted">Le schede approvate in ChatGPT compariranno qui. Dopo ogni allenamento potrai scegliere quando caricare la successiva.</p>
   </div>
 </section>
 <section id="stepWorkout" class="hidden">
     <div id="workoutWarmup" class="card workout-warmup"></div>
     <div class="row between"><div><h1 id="workoutTitle">Scheda selezionata</h1><p class="muted small" id="workoutDuration"></p></div><span class="tag" id="workoutStatus">IN CORSO</span></div>
+    <div class="card workout-clock">
+      <div class="row between">
+        <div><div class="small muted">Tempo attivo stimato</div><strong id="workoutElapsedDisplay">00:00</strong></div>
+        <button class="ghost" id="workoutPauseToggle" type="button">Metti in pausa</button>
+      </div>
+      <p id="workoutClockStatus" class="note">Il conteggio si sospende se l'app va in background o resta inattiva per 10 minuti. Puoi mettere in pausa manualmente.</p>
+    </div>
     <div class="row between"><span class="small muted" id="exerciseCount">Esercizio 1 di 6</span><span class="small muted" id="registeredCount">0 registrati</span></div><div class="status-legend"><span><i class="dot bad"></i> Da registrare</span><span><i class="dot active"></i> In corso</span><span><i class="dot good"></i> Registrato</span></div><div class="progress"><div id="progressBar"></div></div>
     <div class="exercise-card" id="exerciseCard">
       <div class="exercise-head"><div class="field"><label for="exerciseSelect">Esercizio</label><select id="exerciseSelect"></select></div><button class="danger" id="deleteExercise" title="Rimuovi dalla scheda corrente">✕</button></div>
@@ -364,7 +376,7 @@ $('timerPause').onclick=()=>{if(timerDeadline){timerLeft=Math.max(0,Math.ceil((t
 let finalSummaryText='';
 function buildSummaryText(){
  const done=exercises.filter(e=>!e.removed&&e.registered),removed=exercises.filter(e=>e.removed).length,pending=exercises.filter(e=>!e.removed&&!e.registered).length;
- const lines=[`ALLENAMENTO — ${new Date().toLocaleDateString('it-IT')}`,`Scheda: ${activePlan?.title||'Non specificata'}`,`Tempo disponibile: ${$('duration').value||'Non specificato'} minuti`,`Esercizi registrati: ${done.length} | Non registrati: ${pending} | Rimossi: ${removed}`,''];
+ const lines=[`ALLENAMENTO — ${new Date().toLocaleDateString('it-IT')}`,`Scheda: ${activePlan?.title||'Non specificata'}`,`Tempo attivo: ${formatWorkoutElapsed(Math.floor(workoutActiveMs/1000))}`,`Tempo disponibile: ${$('duration').value||'Non specificato'} minuti`,`Esercizi registrati: ${done.length} | Non registrati: ${pending} | Rimossi: ${removed}`,''];
  done.forEach(e=>{lines.push(`${e.name} — ${e.group} — ${e.data.length} serie`);e.data.forEach((s,j)=>lines.push(`  Serie ${j+1}: ${s.kg||'—'} kg | ${s.reps||'—'} rip. | RIR ${s.rir||'—'}`));if(e.notes)lines.push(`  Note: ${e.notes}`);lines.push('')});
  exercises.filter(e=>!e.removed&&!e.registered).forEach(e=>{lines.push(`NON REGISTRATO: ${e.name}`);e.data.forEach((s,j)=>{if(s.kg||s.reps||s.rir)lines.push(`  Serie ${j+1}: ${s.kg||'—'} kg | ${s.reps||'—'} rip. | RIR ${s.rir||'—'}`)});if(e.notes)lines.push(`  Note: ${e.notes}`)});
  lines.push('Fine allenamento. Aggiorna lo storico personale con i dati effettivamente compilati.');return lines.join('\n');
@@ -390,6 +402,14 @@ let currentUser = null;
 let workoutSessionId = null;
 let workoutStartedAt = null;
 let remoteWorkoutPlanId = null;
+let workoutActiveMs = 0;
+let workoutClockLastTickAt = null;
+let workoutLastActivityAt = null;
+let workoutManuallyPaused = false;
+let workoutIdlePaused = false;
+let workoutClockInterval = null;
+let finishingWorkout = false;
+const WORKOUT_IDLE_TIMEOUT_MS = 10 * 60 * 1000;
 
 function updateAuthUI(session) {
   currentUser = session && session.user ? session.user : null;
@@ -437,12 +457,149 @@ function createSessionId() {
   });
 }
 const SESSION_META_KEY = "tracciamento_allenamento_cloud_session_v1";
+const WAITING_NEXT_PLAN_KEY = "tracciamento_workout_waiting_next_plan_v1";
+function formatWorkoutElapsed(seconds) {
+  const total = Math.max(0, Math.floor(Number(seconds) || 0));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  return h > 0
+    ? String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0")
+    : String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
+}
+function renderWorkoutClock() {
+  const display = $("workoutElapsedDisplay");
+  const status = $("workoutClockStatus");
+  const pauseButton = $("workoutPauseToggle");
+  if (display) display.textContent = formatWorkoutElapsed(workoutActiveMs / 1000);
+  if (pauseButton) pauseButton.textContent = workoutManuallyPaused ? "Riprendi allenamento" : "Metti in pausa";
+  if (status) {
+    status.textContent = workoutManuallyPaused
+      ? "Pausa manuale: il tempo non viene conteggiato."
+      : workoutIdlePaused
+        ? "Pausa automatica per inattività. Il conteggio riprenderà quando userai di nuovo l'app."
+        : document.visibilityState !== "visible"
+          ? "Pausa: app in background."
+          : "Il conteggio si sospende se l'app va in background o resta inattiva per 10 minuti.";
+  }
+}
+function advanceWorkoutClock(now) {
+  if (workoutClockLastTickAt === null) return;
+  if (!activePlan || !workoutSessionId || workoutManuallyPaused || document.visibilityState !== "visible") {
+    workoutClockLastTickAt = null;
+    renderWorkoutClock();
+    return;
+  }
+  const idleDeadline = (workoutLastActivityAt || workoutClockLastTickAt) + WORKOUT_IDLE_TIMEOUT_MS;
+  const creditedUntil = Math.min(now, idleDeadline);
+  if (creditedUntil > workoutClockLastTickAt) workoutActiveMs += creditedUntil - workoutClockLastTickAt;
+  if (now >= idleDeadline) {
+    workoutClockLastTickAt = null;
+    workoutIdlePaused = true;
+  } else {
+    workoutClockLastTickAt = now;
+  }
+  renderWorkoutClock();
+}
+function startWorkoutClock(reset) {
+  if (reset) {
+    workoutActiveMs = 0;
+    workoutManuallyPaused = false;
+    workoutIdlePaused = false;
+  }
+  if (!activePlan || !workoutSessionId) {
+    workoutClockLastTickAt = null;
+    renderWorkoutClock();
+    return;
+  }
+  const now = Date.now();
+  workoutLastActivityAt = now;
+  workoutClockLastTickAt = workoutManuallyPaused || document.visibilityState !== "visible" ? null : now;
+  workoutIdlePaused = false;
+  renderWorkoutClock();
+  storeSessionMeta();
+}
+function resetWorkoutClock() {
+  workoutActiveMs = 0;
+  workoutClockLastTickAt = null;
+  workoutLastActivityAt = null;
+  workoutManuallyPaused = false;
+  workoutIdlePaused = false;
+  renderWorkoutClock();
+}
+function handleWorkoutActivity() {
+  if (!activePlan || !workoutSessionId || workoutManuallyPaused || document.visibilityState !== "visible") return;
+  const now = Date.now();
+  if (workoutClockLastTickAt !== null) advanceWorkoutClock(now);
+  workoutLastActivityAt = now;
+  if (workoutClockLastTickAt === null) {
+    workoutClockLastTickAt = now;
+    workoutIdlePaused = false;
+  }
+  renderWorkoutClock();
+}
+document.addEventListener("pointerdown", handleWorkoutActivity, {passive:true});
+document.addEventListener("keydown", handleWorkoutActivity);
+document.addEventListener("input", handleWorkoutActivity);
+document.addEventListener("change", handleWorkoutActivity);
+document.addEventListener("visibilitychange", function() {
+  if (document.visibilityState === "hidden") {
+    advanceWorkoutClock(Date.now());
+    workoutClockLastTickAt = null;
+  } else if (activePlan && workoutSessionId && !workoutManuallyPaused) {
+    workoutLastActivityAt = Date.now();
+    workoutClockLastTickAt = Date.now();
+    workoutIdlePaused = false;
+  }
+  renderWorkoutClock();
+  storeSessionMeta();
+});
+if ($("workoutPauseToggle")) $("workoutPauseToggle").addEventListener("click", function() {
+  const now = Date.now();
+  if (!activePlan || !workoutSessionId) return;
+  if (workoutManuallyPaused) {
+    workoutManuallyPaused = false;
+    workoutLastActivityAt = now;
+    workoutClockLastTickAt = document.visibilityState === "visible" ? now : null;
+    workoutIdlePaused = false;
+  } else {
+    advanceWorkoutClock(now);
+    workoutManuallyPaused = true;
+    workoutClockLastTickAt = null;
+  }
+  renderWorkoutClock();
+  storeSessionMeta();
+});
+setInterval(function() {
+  if (activePlan && workoutSessionId) advanceWorkoutClock(Date.now());
+}, 1000);
+function isAwaitingNextPlan() {
+  try { return localStorage.getItem(WAITING_NEXT_PLAN_KEY) === "1"; } catch (e) { return false; }
+}
+function setAwaitingNextPlan(waiting) {
+  try {
+    if (waiting) localStorage.setItem(WAITING_NEXT_PLAN_KEY, "1");
+    else localStorage.removeItem(WAITING_NEXT_PLAN_KEY);
+  } catch (e) {}
+}
+function showCompletedWorkoutNotice(message) {
+  const panel = $("completedWorkoutNotice");
+  if (!panel) return;
+  $("completedWorkoutMessage").textContent = message;
+  panel.classList.remove("hidden");
+}
+function hideCompletedWorkoutNotice() {
+  const panel = $("completedWorkoutNotice");
+  if (panel) panel.classList.add("hidden");
+}
 function storeSessionMeta() {
   try {
     localStorage.setItem(SESSION_META_KEY, JSON.stringify({
       sessionId: workoutSessionId,
       startedAt: workoutStartedAt,
-      remotePlanId: remoteWorkoutPlanId
+      remotePlanId: remoteWorkoutPlanId,
+      activeSeconds: Math.floor(workoutActiveMs / 1000),
+      manuallyPaused: workoutManuallyPaused
     }));
     const raw = localStorage.getItem(DRAFT_KEY);
     if (raw) {
@@ -450,6 +607,8 @@ function storeSessionMeta() {
       draft.sessionId = workoutSessionId;
       draft.startedAt = workoutStartedAt;
       draft.remotePlanId = remoteWorkoutPlanId;
+      draft.activeSeconds = Math.floor(workoutActiveMs / 1000);
+      draft.manuallyPaused = workoutManuallyPaused;
       localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
     }
   } catch (e) {}
@@ -464,11 +623,21 @@ function restoreSessionMeta() {
       workoutSessionId = (draft && draft.sessionId) || (meta && meta.sessionId) || createSessionId();
       workoutStartedAt = (draft && draft.startedAt) || (meta && meta.startedAt) || (draft && draft.updatedAt) || new Date().toISOString();
       remoteWorkoutPlanId = (draft && draft.remotePlanId) || (meta && meta.remotePlanId) || null;
+      const clockData = draft || meta || {};
+      workoutActiveMs = Math.max(0, Number(clockData.activeSeconds) || 0) * 1000;
+      workoutManuallyPaused = !!clockData.manuallyPaused;
+      workoutLastActivityAt = Date.now();
+      workoutIdlePaused = false;
+      workoutClockLastTickAt = workoutManuallyPaused || document.visibilityState !== "visible" ? null : Date.now();
+      renderWorkoutClock();
       storeSessionMeta();
     }
   } catch (e) {}
 }
 restoreSessionMeta();
+setInterval(function() {
+  if (activePlan && workoutSessionId) storeSessionMeta();
+}, 3000);
 
 const originalSaveDraft = saveDraft;
 saveDraft = function() {
@@ -497,15 +666,18 @@ $("planCards").addEventListener("click", function(event) {
   }
   workoutSessionId = createSessionId();
   workoutStartedAt = new Date().toISOString();
+  resetWorkoutClock();
+  startWorkoutClock(true);
   storeSessionMeta();
 }, true);
 
 async function persistWorkoutToSupabase() {
   if (!currentUser) throw new Error("Accedi al tuo account prima di sincronizzare.");
   if (!activePlan || !workoutSessionId) throw new Error("Non trovo l'identificativo della sessione.");
+  advanceWorkoutClock(Date.now());
   const startedAt = workoutStartedAt || new Date().toISOString();
   const finishedAt = new Date().toISOString();
-  const durationSeconds = Math.max(0, Math.round((Date.parse(finishedAt) - Date.parse(startedAt)) / 1000));
+  const durationSeconds = Math.max(0, Math.floor(workoutActiveMs / 1000));
   const workoutResult = await supabaseClient.from("workouts").upsert({
     user_id: currentUser.id,
     client_session_id: workoutSessionId,
@@ -578,14 +750,18 @@ async function persistWorkoutToSupabase() {
 }
 
 $("finishWorkout").onclick = async function() {
+ if(finishingWorkout)return;
  if(!currentUser){
   $("authCard").classList.remove("hidden");
   $("authMessage").textContent="Accedi per salvare l'allenamento su Supabase.";
   $("authCard").scrollIntoView({behavior:"smooth"});
   return;
  }
+ finishingWorkout=true;
  const button=this;
  const message=$("workoutSaveMessage");
+ advanceWorkoutClock(Date.now());
+ storeSessionMeta();
  button.disabled=true;
  button.textContent="Salvataggio…";
  message.classList.add("hidden");
@@ -603,13 +779,17 @@ $("finishWorkout").onclick = async function() {
    localStorage.removeItem(SESSION_META_KEY);
    localStorage.removeItem(PENDING_PLAN_KEY);
   }catch(e){}
+  setAwaitingNextPlan(true);
   activePlan=null;exercises=[];idx=0;workoutSessionId=null;workoutStartedAt=null;remoteWorkoutPlanId=null;
+  resetWorkoutClock();
   stopTimer("Pronto");setTimer(120);
+  finishingWorkout=false;
   button.disabled=false;button.textContent="Termina allenamento";
   message.classList.add("hidden");
   showTrainingView("empty");
-  setTimeout(loadNextChatGPTWorkout,250);
+  showCompletedWorkoutNotice("Allenamento salvato su Supabase. La prossima scheda non verrà aperta automaticamente: premi il pulsante quando vuoi iniziare.");
  }catch(error){
+  finishingWorkout=false;
   button.disabled=false;button.textContent="Riprova salvataggio";
   message.textContent="Salvataggio non completato: "+(error.message||String(error))+". La sessione resta aperta e conservata sul dispositivo.";
   message.classList.remove("hidden");
@@ -737,8 +917,12 @@ function applyNormalizedWorkout(planObj,asPending){
   showTrainingView("preview");
   renderPendingWorkoutPreview();
  }else{
+  setAwaitingNextPlan(false);
+  hideCompletedWorkoutNotice();
   workoutSessionId=createSessionId();
   workoutStartedAt=new Date().toISOString();
+  resetWorkoutClock();
+  startWorkoutClock(true);
   storeSessionMeta();
   renderExercise();
   showTrainingView("workout");
@@ -779,39 +963,96 @@ function startImportedWorkout(){
  applyNormalizedWorkout(activePlan,false);
 }
 let loadingChatGPTPlan=false;
-async function loadNextChatGPTWorkout(){
+function normalizeExerciseKey(name) {
+ return String(name||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+  .replace(/\b(macchina|machine)\b/g,"").replace(/[^a-z0-9]+/g," ").trim();
+}
+async function compareQueuedPlanWithLastWorkout(row) {
+ const latest=await supabaseClient.from("workouts").select("id,plan_title")
+  .eq("user_id",currentUser.id).eq("status","completed").gte("duration_seconds",120)
+  .order("finished_at",{ascending:false}).limit(1).maybeSingle();
+ if(latest.error)throw latest.error;
+ if(!latest.data)return {similar:false,percentage:0};
+ const oldExercises=await supabaseClient.from("workout_exercises").select("exercise_name")
+  .eq("workout_id",latest.data.id).eq("removed",false).order("exercise_order",{ascending:true});
+ if(oldExercises.error)throw oldExercises.error;
+ const previous=(oldExercises.data||[]).map(x=>normalizeExerciseKey(x.exercise_name)).filter(Boolean);
+ const nextPlan=normalizePlanData(row.plan_data);
+ const next=(nextPlan.normalizedExercises||[]).map(x=>normalizeExerciseKey(x.name)).filter(Boolean);
+ if(previous.length<2||next.length<2)return {similar:false,percentage:0};
+ const matches=next.filter(name=>previous.includes(name)).length;
+ const percentage=matches/Math.max(previous.length,next.length);
+ const sameTitle=normalizeExerciseKey(latest.data.plan_title)===normalizeExerciseKey(nextPlan.title);
+ return {similar:percentage>=0.8||(sameTitle&&percentage>=0.65),percentage,previousCount:previous.length,nextCount:next.length,title:nextPlan.title};
+}
+async function loadNextChatGPTWorkout(userInitiated=false){
  if(!currentUser||loadingChatGPTPlan||(activePlan&&workoutSessionId))return;
+ if(isAwaitingNextPlan()&&!userInitiated)return;
+ if(userInitiated)setAwaitingNextPlan(false);
  loadingChatGPTPlan=true;
  try{
   const found=await supabaseClient.from("workout_plans").select("*")
    .eq("user_id",currentUser.id).eq("status","pending")
    .order("created_at",{ascending:true}).limit(1).maybeSingle();
   if(found.error)throw found.error;
-  if(!found.data)return;
+  if(!found.data){
+   if(userInitiated){
+    setAwaitingNextPlan(true);
+    showCompletedWorkoutNotice("Non ci sono altre schede approvate in coda. Quando ne approverai una nuova, potrai caricarla da qui.");
+   }
+   return;
+  }
   const row=found.data;
+  const similarity=await compareQueuedPlanWithLastWorkout(row);
+  if(similarity.similar){
+   const percentage=Math.round(similarity.percentage*100);
+   const warning="La prossima scheda («"+similarity.title+"») è molto simile all'ultimo allenamento registrato ("+percentage+"% degli esercizi coincidono).\n\nVuoi caricarla comunque?";
+   if(!userInitiated||!window.confirm(warning)){
+    setAwaitingNextPlan(true);
+    showCompletedWorkoutNotice(userInitiated
+     ?"La scheda è rimasta in coda perché è molto simile all'ultima. Puoi caricarla comunque premendo di nuovo il pulsante e confermando."
+     :"È presente una scheda molto simile all'ultimo allenamento. Non è stata caricata automaticamente: controlla e scegli tu se proseguire.");
+    return;
+   }
+  }
   const claimed=await supabaseClient.from("workout_plans")
    .update({status:"in_progress",started_at:new Date().toISOString()})
    .eq("id",row.id).eq("user_id",currentUser.id).eq("status","pending")
    .select("id").maybeSingle();
   if(claimed.error)throw claimed.error;
-  if(!claimed.data)return;
+  if(!claimed.data){
+   if(userInitiated){
+    setAwaitingNextPlan(true);
+    showCompletedWorkoutNotice("La scheda è stata presa da un'altra sessione o non è più disponibile. Riprova tra poco.");
+   }
+   return;
+  }
   try{
    const plan=normalizePlanData(row.plan_data);
    remoteWorkoutPlanId=row.id;
    applyNormalizedWorkout(plan,false);
+   setAwaitingNextPlan(false);
+   hideCompletedWorkoutNotice();
    storeSessionMeta();
    saveDraft();
   }catch(error){
    await supabaseClient.from("workout_plans").update({status:"pending",started_at:null}).eq("id",row.id).eq("user_id",currentUser.id);
    remoteWorkoutPlanId=null;
+   setAwaitingNextPlan(true);
    throw error;
   }
  }catch(error){
   console.error("Caricamento scheda ChatGPT non riuscito:",error);
+  if(userInitiated){
+   setAwaitingNextPlan(true);
+   showCompletedWorkoutNotice("Non è stato possibile caricare la scheda: "+(error.message||String(error))+". La scheda resta in coda.");
+  }
  }finally{
   loadingChatGPTPlan=false;
  }
 }
+if($("loadNextWorkoutButton"))$("loadNextWorkoutButton").addEventListener("click",function(){loadNextChatGPTWorkout(true);});
+if(isAwaitingNextPlan())showCompletedWorkoutNotice("Allenamento già salvato. La prossima scheda verrà caricata soltanto quando lo richiederai.");
 function safeNum(v){const n=Number(v);return Number.isFinite(n)?n:0;}
 function uuidLike(v){return typeof v==="string"&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);}
 function downloadJsonFile(filename,data){
@@ -1560,8 +1801,9 @@ $("goFilesForFood").onclick=function(){appNavigate("files");};
 function startImportedWorkout(){
  if(!currentUser){$("authMessage").textContent="Accedi prima di iniziare e salvare l'allenamento.";$("authCard").scrollIntoView({behavior:"smooth"});return;}
  try{localStorage.removeItem(PENDING_PLAN_KEY);}catch(e){}
+ setAwaitingNextPlan(false);hideCompletedWorkoutNotice();
  const preview=$("pendingWorkoutPreview");if(preview)preview.classList.add("hidden");
- workoutSessionId=createSessionId();workoutStartedAt=new Date().toISOString();storeSessionMeta();
+ workoutSessionId=createSessionId();workoutStartedAt=new Date().toISOString();resetWorkoutClock();startWorkoutClock(true);storeSessionMeta();
  $("workoutStatus").textContent="IN CORSO";$("workoutStatus").className="tag";
  if($("workoutWarmup"))$("workoutWarmup").innerHTML="<strong>Riscaldamento · "+Number(activePlan.warmupMinutes||5)+" min</strong><p>"+esc(activePlan.warmupNotes||"Riscaldamento generale e specifico.")+"</p>";
  renderExercise();show("stepWorkout");saveDraft();

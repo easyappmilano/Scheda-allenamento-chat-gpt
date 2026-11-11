@@ -755,11 +755,9 @@ async function collectArchive(scope,date){
   const backupProgressPhotos=[];
   for(const photo of fitnessProgressPhotos){
    const copy=Object.assign({},photo);
-   if(copy.image_data){
-    copy.backup_image_data=copy.image_data;
-   }else if(copy.storage_path&&!String(copy.storage_path).startsWith("inline-data:")){
+   if(!copy.image_data&&copy.storage_path&&!String(copy.storage_path).startsWith("inline-data:")){
     copy.backup_image_data=await downloadImageForBackup("fitness-progress-photos",copy.storage_path);
-   }else{
+   }else if(!copy.image_data){
     throw new Error("Backup incompleto: una foto dei progressi non contiene dati immagine.");
    }
    backupProgressPhotos.push(copy);

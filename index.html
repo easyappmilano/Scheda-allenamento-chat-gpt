@@ -123,12 +123,12 @@ h1{font-size:25px;line-height:1.15;margin:4px 0 8px}h2{font-size:18px;margin:0 0
     <p id="backupStatus" class="note">Il backup comprende allenamenti, esercizi, serie, pasti, alimenti e valori macro disponibili.</p>
   </div>
   <div class="card">
-    <h2>Carica un file JSON</h2>
-    <p class="small muted">Carica qui la scheda di allenamento o il programma alimentare che preparo in ChatGPT. Puoi anche ripristinare un backup precedente.</p>
+    <h2>Ripristina un backup JSON</h2>
+    <p class="small muted">Seleziona un backup JSON precedente per ripristinare lo storico personale, comprese le misurazioni e le fotografie disponibili.</p>
     <div class="field"><label for="jsonFileInput">Seleziona file</label><input id="jsonFileInput" type="file" accept=".json,application/json"></div>
     <div id="jsonPreview" class="hidden"></div>
     <div class="btnrow">
-      <button id="applyJsonImport" class="good" type="button" disabled>Importa nell'app</button>
+      <button id="applyJsonImport" class="good" type="button" disabled>Ripristina backup</button>
       <button id="cancelJsonImport" class="secondary" type="button" disabled>Annulla</button>
     </div>
     <p id="jsonStatus" class="note">I file vengono controllati prima dell'importazione. Non sovrascrivo lo storico esistente.</p>
@@ -828,7 +828,7 @@ $("jsonFileInput").onchange=async function(event){
   $("applyJsonImport").disabled=false;$("cancelJsonImport").disabled=false;
   $("jsonStatus").textContent="Controllo completato. Conferma l'importazione.";
  }catch(e){
-  pendingFile=null;$("jsonStatus").textContent="File JSON non valido: "+e.message;
+  pendingFile=null;$("jsonStatus").textContent="Backup JSON non valido: "+e.message;
  }
  event.target.value="";
 };
@@ -1099,7 +1099,7 @@ function normalizeArchiveIfOld(data){
 $("applyJsonImport").onclick=async function(){
  if(!pendingFile)return;
  if(!currentUser){$("jsonStatus").textContent="Accedi prima di importare. I file non vengono salvati senza account.";return;}
- const button=this;button.disabled=true;button.textContent="Importazione…";
+ const button=this;button.disabled=true;button.textContent="Ripristino…";
  try{
   let data=normalizeArchiveIfOld(pendingFile);
   const type=data.type||data.kind||(data.schema===BACKUP_SCHEMA?"fitness_diary_backup":"");
@@ -1121,8 +1121,8 @@ $("applyJsonImport").onclick=async function(){
    throw new Error("Formato non riconosciuto: carica una scheda workout_plan, un piano nutrition_plan oppure un backup fitness-diary-backup.");
   }
   pendingFile=null;$("jsonPreview").classList.add("hidden");$("applyJsonImport").disabled=true;$("cancelJsonImport").disabled=true;
- }catch(e){$("jsonStatus").textContent="Importazione non completata: "+e.message;}
- finally{button.disabled=false;button.textContent="Importa nell'app";}
+ }catch(e){$("jsonStatus").textContent="Ripristino non completato: "+e.message;}
+ finally{button.disabled=false;button.textContent="Ripristina backup";}
 };
 async function loadFoodDay(){
  if(!currentUser){
@@ -1262,7 +1262,7 @@ async function importFullArchive(data){
 $("applyJsonImport").onclick=async function(){
  if(!pendingFile)return;
  if(!currentUser){$("jsonStatus").textContent="Accedi prima di importare. L'archivio richiede un account Supabase.";return;}
- const button=this;button.disabled=true;button.textContent="Importazione…";
+ const button=this;button.disabled=true;button.textContent="Ripristino…";
  try{
   let data=normalizeArchiveIfOld(pendingFile);
   const type=data.type||data.kind||(data.schema===BACKUP_SCHEMA?"fitness_diary_backup":"");
@@ -1284,8 +1284,8 @@ $("applyJsonImport").onclick=async function(){
    throw new Error("Formato non riconosciuto. Formati ammessi: workout_plan, nutrition_plan, fitness-diary-backup.");
   }
   pendingFile=null;$("jsonPreview").classList.add("hidden");$("applyJsonImport").disabled=true;$("cancelJsonImport").disabled=true;
- }catch(e){$("jsonStatus").textContent="Importazione non completata: "+e.message;}
- finally{button.disabled=false;button.textContent="Importa nell'app";}
+ }catch(e){$("jsonStatus").textContent="Ripristino non completato: "+e.message;}
+ finally{button.disabled=false;button.textContent="Ripristina backup";}
 };
 
 function renderPendingWorkoutPreview(){

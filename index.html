@@ -624,7 +624,7 @@ function renderAIImportPreview(data,fileName){
   title="Piano alimentare";description=meals.length+" pasti da salvare nel diario.";
  }else if(type==="fitness_diary_backup"||data.schema==="fitness-diary-backup"){
   title="Importazione storico personale";
-  description=workouts.length+" allenamenti · "+meals.length+" pasti · backup JSON.";
+  description=workouts.length+" allenamenti · "+meals.length+" pasti · "+((data.unassigned_historical_notes||[]).length)+" note da verificare · backup JSON.";
  }else{
   description="Formati supportati: workout_plan, nutrition_plan, fitness_diary_backup.";
  }
@@ -815,7 +815,7 @@ $("applyAIResponse").onclick=async function(){
    $("aiTransferStatus").textContent="Pasti salvati nel diario alimentare.";appNavigate("food");
   }else if(type==="fitness_diary_backup"||data.schema==="fitness-diary-backup"){
    await importDiaryBackup(data);
-   $("aiTransferStatus").textContent="Storico importato correttamente in Supabase.";
+   $("aiTransferStatus").textContent="Storico importato. Le note senza data o quantità restano nel file per una verifica successiva.";
   }else{
    throw new Error("Formato non riconosciuto. Usa workout_plan, nutrition_plan o fitness_diary_backup.");
   }

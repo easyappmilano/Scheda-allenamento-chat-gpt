@@ -9,7 +9,7 @@ ChatGPT è l'unico livello di ragionamento e pianificazione. L'app non deve chia
 3. Distingui sempre valori misurati, auto-riferiti, stimati e non disponibili.
 4. Quando le risposte obbligatorie sono complete, salva l'intero aggiornamento con una sola chiamata a `save_fitness_checkin(..., p_measurements)`. Usa un `source_id` stabile e univoco. La funzione registra check-in, misurazioni e, quando presente `body_weight`, anche la pesata nel registro giornaliero.
 5. Se l'utente invia anche fotografie, usa `save_fitness_checkin_with_photos(..., p_measurements, p_photos)`: include le immagini come data URL/base64 con mime type e vista (front/side/back). Le immagini sono conservate nel database con RLS attivo e incluse nel backup JSON.
-6. Per una pesata singola comunicata fuori dal check-in, usa `save_body_weight_entry(...)`, con timestamp, origine e contesto (ad esempio digiuno/dopo pasto).
+6. Per una pesata singola comunicata fuori dal check-in, usa `save_body_weight_entry(...)`, con timestamp, origine e contesto. Imposta `context.standardized=true` e `context.include_in_average=true` solo per pesate confrontabili (preferibilmente al mattino, dopo il bagno e prima di mangiare/bere); dopo colazione, dopo allenamento o in condizioni diverse usa `include_in_average=false`. La misura resta nello storico ma non altera la media mobile.
 7. Verifica il risultato restituito dalla funzione. Dopo che l'utente ha completato il questionario, non chiedere una seconda approvazione per la registrazione.
 8. Non cambiare i target calorici o macro senza approvazione esplicita.
 

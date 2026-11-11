@@ -385,3 +385,44 @@ begin
 end;
 $$;
 grant execute on function public.refresh_daily_nutrition_summary(date) to authenticated;
+
+
+-- Indici FK mancanti e policy RLS ottimizzate per l'utente autenticato.
+create index if not exists workout_exercises_user_id_idx on public.workout_exercises(user_id);
+create index if not exists workout_sets_user_id_idx on public.workout_sets(user_id);
+create index if not exists workout_sets_workout_id_idx on public.workout_sets(workout_id);
+create index if not exists workout_plans_workout_id_idx on public.workout_plans(workout_id);
+create index if not exists nutrition_entries_food_id_idx on public.nutrition_entries(food_id);
+
+drop policy if exists "Owner manages workouts" on public.workouts;
+create policy "Owner manages workouts" on public.workouts
+ for all to authenticated using (user_id=(select auth.uid()))
+ with check (user_id=(select auth.uid()));
+
+drop policy if exists "Owner manages exercises" on public.workout_exercises;
+create policy "Owner manages exercises" on public.workout_exercises
+ for all to authenticated
+ using (
+  user_id=(select auth.uid())
+  and exists (select 1 from public.workouts w
+    where w.id=workout_exercises.workout_id and w.user_id=(select auth.uid()))
+ )
+ with check (
+  user_id=(select auth.uid())
+  and exists (select 1 from public.workouts w
+    where w.id=workout_exercises.workout_id and w.user_id=(select auth.uid()))
+ );
+
+drop policy if exists "Owner manages sets" on public.workout_sets;
+create policy "Owner manages sets" on public.workout_sets
+ for all to authenticated
+ using (
+  user_id=(select auth.uid())
+  and exists (select 1 from public.workouts w
+    where w.id=workout_sets.workout_id and w.user_id=(select auth.uid()))
+ )
+ with check (
+  user_id=(select auth.uid())
+  and exists (select 1 from public.workouts w
+    where w.id=workout_sets.workout_id and w.user_id=(select auth.uid()))
+ );

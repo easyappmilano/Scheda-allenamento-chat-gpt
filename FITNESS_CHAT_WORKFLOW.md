@@ -31,6 +31,38 @@ Dopo l'approvazione, chiamare una sola volta `public.enqueue_workout_plan(user_i
 - La funzione è idempotente: non crea una seconda scheda se lo stesso source_id è già presente e non resetta lo stato di una scheda esistente.
 - Non inserire o riattivare automaticamente duplicati già presenti in coda.
 
+
+Il campo `plan_data` deve rispettare il formato già consumato dall'app:
+```json
+{
+  "schema": "fitness-assistant-response",
+  "version": 1,
+  "type": "workout_plan",
+  "plan": {
+    "title": "Titolo",
+    "focus": "Focus muscolare",
+    "duration_minutes": 45,
+    "warmup_minutes": 5,
+    "warmup_notes": "Riscaldamento",
+    "selection_mode": "manual",
+    "requested_groups": ["Schiena", "Bicipiti"],
+    "reasoning_summary": "Motivazione sintetica",
+    "exercises": [
+      {
+        "name": "Pulley basso",
+        "muscle_group": "Schiena",
+        "planned_sets": 3,
+        "rep_range": "8-12",
+        "target_rir": "1-2",
+        "rest_seconds": 120,
+        "previous_reference": "Riferimento storico",
+        "coaching_note": "Indicazione pratica"
+      }
+    ]
+  }
+}
+```
+
 ## Diario alimentare
 - Calcolare per ogni pasto kcal e P/C/G; usare range quando pesi o ingredienti sono incerti.
 - A fine giornata salvare i pasti e il riepilogo in Supabase.

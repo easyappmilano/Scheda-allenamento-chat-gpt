@@ -15,7 +15,7 @@ h1{font-size:25px;line-height:1.15;margin:4px 0 8px}h2{font-size:18px;margin:0 0
 </head>
 <body>
 <div class="wrap">
-  <div class="top"><div class="brand">TRACCIAMENTO · ALLENAMENTO</div><span class="tag">SCHEDA INTERATTIVA</span></div>
+  <div class="top"><div class="brand">TRACCIAMENTO PERSONALE</div><span class="tag">FITNESS + NUTRIZIONE</span></div>
   <div class="card" id="authCard">
     <div id="authForm">
       <h2>Accesso personale</h2>
@@ -29,53 +29,55 @@ h1{font-size:25px;line-height:1.15;margin:4px 0 8px}h2{font-size:18px;margin:0 0
   </div>
   <div class="btnrow" style="margin:12px 0"><button id="navTraining" type="button">Allenamento</button><button id="navFood" class="secondary" type="button">Alimentazione</button></div>
   <section id="stepFood" class="hidden">
-    <h1>Diario alimentare</h1>
-    <p class="muted">Registra pasti programmati o consumati. I totali giornalieri vengono confrontati con i tuoi obiettivi nutrizionali.</p>
-    <div class="card">
-      <div class="field"><label for="foodDate">Data</label><input id="foodDate" type="date"></div>
-      <div class="row between"><strong>Obiettivi giornalieri</strong><span class="pill">Target attuale</span></div>
-      <div class="summaryline"><span>Calorie</span><strong>1.900 kcal</strong></div>
-      <div class="summaryline"><span>Proteine</span><strong>129 g</strong></div>
-      <div class="summaryline"><span>Carboidrati</span><strong>192 g</strong></div>
-      <div class="summaryline"><span>Grassi</span><strong>68 g</strong></div>
+  <h1>Alimentazione</h1>
+  <p class="muted">Descrivi uno o più pasti, oppure chiedi all'assistente di costruire una ricetta sui tuoi macro.</p>
+  <div class="card">
+    <div class="row between"><strong>Obiettivi giornalieri</strong><span class="pill">1.900 kcal</span></div>
+    <div class="grid" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:8px">
+      <div class="pill">P 129 g</div><div class="pill">C 192 g</div><div class="pill">G 68 g</div><div class="pill">Kcal 1900</div>
     </div>
-    <div class="card">
-      <h2>Aggiungi alimento</h2>
-      <div class="field"><label for="foodMeal">Pasto</label><select id="foodMeal"><option>Colazione</option><option>Spuntino mattina</option><option>Pranzo</option><option>Spuntino pomeriggio</option><option>Cena</option><option>Altro</option></select></div>
-      <div class="field"><label for="foodName">Alimento</label><input id="foodName" placeholder="Es. riso basmati, pollo, yogurt greco"></div>
-      <div class="field"><label for="foodCategory">Categoria</label><select id="foodCategory"><option>Carboidrati</option><option>Proteine</option><option>Grassi</option><option>Frutta e verdura</option><option>Latticini</option><option>Altro</option></select></div>
-      <div class="field"><label for="foodQuantity">Quantità (g o ml)</label><input id="foodQuantity" type="number" min="0" step="0.1" placeholder="100"></div>
-      <div class="small muted">Inserisci i valori nutrizionali riferiti a 100 g o 100 ml. L'app calcolerà automaticamente i valori della quantità indicata.</div>
-      <div class="grid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:9px">
-        <div class="field"><label for="foodKcal">Kcal / 100 g</label><input id="foodKcal" type="number" min="0" step="0.1"></div>
-        <div class="field"><label for="foodProtein">Proteine / 100 g</label><input id="foodProtein" type="number" min="0" step="0.1"></div>
-        <div class="field"><label for="foodCarbs">Carboidrati / 100 g</label><input id="foodCarbs" type="number" min="0" step="0.1"></div>
-        <div class="field"><label for="foodFat">Grassi / 100 g</label><input id="foodFat" type="number" min="0" step="0.1"></div>
-      </div>
-      <div class="field"><label for="foodStatus">Stato</label><select id="foodStatus"><option value="consumed">Consumato</option><option value="planned">Programmato</option></select></div>
-      <div class="time-result" id="foodPreview">Inserisci quantità e valori nutrizionali per calcolare i macro.</div>
-      <div class="btnrow" style="margin-top:12px"><button id="addFoodEntry" class="good">Salva alimento nel diario</button><button id="saveFoodCatalog" class="secondary">Salva anche tra i miei alimenti</button></div>
-      <p class="note">I valori inseriti manualmente sono da considerare dichiarati o stimati: indica i valori dell'etichetta quando disponibili.</p>
-    </div>
-    <div class="card">
-      <div class="row between"><h2>Riepilogo della giornata</h2><button id="refreshFood" class="ghost">Aggiorna</button></div>
-      <div id="foodTotals"></div>
-      <div id="foodEntries"><p class="muted small">Seleziona una data per caricare il diario.</p></div>
-    </div>
-    <div class="card">
-      <h2>I miei alimenti salvati</h2>
-      <p class="small muted">Riutilizza i valori nutrizionali già registrati.</p>
-      <div class="field"><label for="savedFoodSelect">Alimento salvato</label><select id="savedFoodSelect"><option value="">Seleziona alimento…</option></select></div>
-      <button id="useSavedFood" class="secondary">Carica alimento nel modulo</button>
-    </div>
-  </section>
-  <section id="stepTime">
+    <div class="field"><label for="foodDate">Data del diario</label><input id="foodDate" type="date"></div>
+    <div class="field"><label for="foodTask">Cosa vuoi fare?</label><select id="foodTask"><option value="log">Registrare ciò che ho mangiato</option><option value="plan">Creare un pasto o una ricetta in base ai macro</option></select></div>
+    <div class="field"><label for="foodPrompt">Alimenti, quantità o richiesta</label><textarea id="foodPrompt" rows="3" placeholder="Esempio: colazione 50 g crema di riso, 25 g proteine, 150 ml latte di mandorla. Pranzo: 80 g riso, 180 g pollo e 10 g olio."></textarea></div>
+    <div class="btnrow"><button id="foodMic" class="secondary" type="button">Detta a voce</button><button id="foodAnalyze" class="good" type="button">Calcola con l'assistente</button></div>
+    <p class="note" id="foodVoiceStatus">Puoi indicare più pasti nello stesso messaggio. Per una ricetta, specifica ingredienti disponibili e obiettivo calorico/macro.</p>
+    <div id="foodAiResult" class="hidden" style="margin-top:12px"></div>
+    <div class="btnrow" style="margin-top:10px"><button id="saveFoodBatch" class="good" disabled>Conferma e salva tutti i pasti</button><button id="clearFoodBatch" class="ghost" disabled>Scarta proposta</button></div>
+  </div>
+  <div class="card">
+    <div class="row between"><h2>Riepilogo giornaliero</h2><button id="refreshFood" class="ghost">Aggiorna</button></div>
+    <div id="foodTotals"></div><div id="foodEntries"><p class="muted small">Nessun alimento caricato.</p></div>
+  </div>
+  <details class="card">
+    <summary><strong>Alimenti salvati</strong> <span class="small muted">· catalogo personale compatto</span></summary>
+    <p class="small muted">I valori già salvati vengono forniti all'assistente per velocizzare i calcoli.</p>
+    <div class="field"><label for="savedFoodSelect">Seleziona alimento</label><select id="savedFoodSelect"><option value="">Caricamento catalogo…</option></select></div>
+    <div class="field"><label for="savedFoodQuantity">Quantità da aggiungere al testo (g/ml)</label><input type="number" id="savedFoodQuantity" min="1" value="100"></div>
+    <button id="useSavedFood" class="secondary">Aggiungi alla richiesta</button>
+  </details>
+</section>
+  <section id="stepHome">
+  <h1>Il tuo tracciamento</h1>
+  <p class="muted">Scegli l'area da aggiornare. Allenamento e alimentazione condividono lo storico personale e l'assistente AI.</p>
+  <div class="grid" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">
+    <div class="card" style="margin:0"><h2>Allenamenti</h2><p class="muted small">Programma la sessione in base al tempo, scegli i gruppi muscolari e registra carichi, ripetizioni e RIR.</p><button id="homeTraining" class="good" style="width:100%">Apri allenamenti</button></div>
+    <div class="card" style="margin:0"><h2>Alimentazione</h2><p class="muted small">Detta o scrivi ciò che mangi, crea ricette e registra più pasti in un'unica operazione.</p><button id="homeFood" style="width:100%">Apri alimentazione</button></div>
+  </div>
+</section>
+<section id="stepTime" class="hidden">
     <h1>Quanto tempo hai oggi?</h1>
     <p class="muted">Analizzo internamente lo storico, il recupero e i gruppi muscolari. Ti mostro tre alternative senza riportare l'elenco delle vecchie sessioni.</p>
     <div class="card">
       <div class="field"><label for="duration">Tempo totale a disposizione</label><select id="duration"><option value="">Seleziona il tempo…</option><option value="45">45 minuti</option><option value="55">55 minuti</option><option value="60">1 ora</option><option value="90">1 ora e 30 minuti</option><option value="120">2 ore</option><option value="more">Più di 2 ore</option></select></div>
       <div class="time-result" id="warmupInfo">Riscaldamento: 5 minuti · Tempo allenante: seleziona la durata</div>
-      <div class="btnrow" style="margin-top:14px"><button id="showPlans" disabled>Analizza e mostra le 3 proposte</button></div>
+      <div class="field"><label for="workoutMode">Chi sceglie i gruppi muscolari?</label><select id="workoutMode"><option value="auto">Lascia decidere all'assistente in base allo storico</option><option value="manual">Scelgo io i gruppi muscolari</option></select></div>
+      <div id="musclePicker" class="field hidden"><label>Seleziona uno o più gruppi muscolari</label>
+        <div class="grid" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">
+          <label class="row" style="font-weight:600;background:#f3f4f6;border-radius:10px;padding:9px"><input type="checkbox" name="muscleGroup" value="Gambe" style="width:auto"> Gambe</label><label class="row" style="font-weight:600;background:#f3f4f6;border-radius:10px;padding:9px"><input type="checkbox" name="muscleGroup" value="Addome" style="width:auto"> Addome</label><label class="row" style="font-weight:600;background:#f3f4f6;border-radius:10px;padding:9px"><input type="checkbox" name="muscleGroup" value="Petto" style="width:auto"> Petto</label><label class="row" style="font-weight:600;background:#f3f4f6;border-radius:10px;padding:9px"><input type="checkbox" name="muscleGroup" value="Schiena" style="width:auto"> Schiena</label><label class="row" style="font-weight:600;background:#f3f4f6;border-radius:10px;padding:9px"><input type="checkbox" name="muscleGroup" value="Spalle" style="width:auto"> Spalle</label><label class="row" style="font-weight:600;background:#f3f4f6;border-radius:10px;padding:9px"><input type="checkbox" name="muscleGroup" value="Bicipiti" style="width:auto"> Bicipiti</label><label class="row" style="font-weight:600;background:#f3f4f6;border-radius:10px;padding:9px"><input type="checkbox" name="muscleGroup" value="Tricipiti" style="width:auto"> Tricipiti</label>
+        </div>
+      </div>
+      <div class="field"><label for="workoutRequest">Indicazioni aggiuntive (facoltative)</label><textarea id="workoutRequest" rows="2" placeholder="Es. oggi ho più energia, evita esercizi che sovraccaricano la schiena…"></textarea></div>
+      <div class="btnrow" style="margin-top:14px"><button id="showPlans" disabled>Chiedi all'assistente di preparare la scheda</button></div>
       <p class="note">I 5 minuti di riscaldamento vengono sempre sottratti dal tempo selezionato.</p>
     </div>
   </section>
@@ -109,7 +111,7 @@ const plans=[
 ];
 const exerciseLibrary=['Leg press 45°','Squat al multipower','Goblet squat','Leg extension','Leg curl','Stacco rumeno','Hip thrust','Adductor machine','Abductor machine','Calf raise','Crunch al cavo','Crunch su panca','Plank','Knees to chest alla sbarra'];
 let activePlan=null,exercises=[],idx=0,timerLeft=120,timerInt=null;
-function show(id){['stepTime','stepPlans','stepWorkout','stepSummary','stepFood'].forEach(s=>$(s).classList.toggle('hidden',s!==id));window.scrollTo({top:0,behavior:'smooth'})}
+function show(id){['stepHome','stepTime','stepPlans','stepWorkout','stepSummary','stepFood'].forEach(s=>$(s).classList.toggle('hidden',s!==id));window.scrollTo({top:0,behavior:'smooth'})}
 function fmt(n){return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')}
 function stopTimer(state='In pausa'){if(timerInt){clearInterval(timerInt);timerInt=null}if($('timerState'))$('timerState').textContent=state}
 function setTimer(n){timerLeft=Math.max(0,Number(n)||0);$('timerDisplay').textContent=fmt(timerLeft)}
@@ -288,7 +290,10 @@ async function persistWorkoutToSupabase() {
     status: "completed",
     plan_id: activePlan.id,
     plan_title: activePlan.title,
-    selected_duration: $("duration").value || null
+    selected_duration: $("duration").value || null,
+    ai_generated: !!activePlan.aiGenerated,
+    selection_mode: activePlan.selectionMode || null,
+    requested_groups: activePlan.requestedGroups || null
   }, { onConflict: "user_id,client_session_id" }).select("id").single();
   if (workoutResult.error) throw workoutResult.error;
   const workoutId = workoutResult.data.id;
@@ -308,7 +313,9 @@ async function persistWorkoutToSupabase() {
     rep_range: exercise.repRange || null,
     planned_sets: Number.isFinite(Number(exercise.sets)) ? Number(exercise.sets) : null,
     rest_seconds: Number.isFinite(Number(exercise.rest)) ? Number(exercise.rest) : null,
-    previous_reference: exercise.previous || null
+    previous_reference: exercise.previous || null,
+    coaching_note: exercise.coachingNote || null,
+    target_rir: exercise.targetRir || null
   }));
   const exerciseIdsByOrder = {};
   if (exerciseRows.length) {
@@ -413,63 +420,211 @@ $("restart").onclick = function() {
 <script>
 const FOOD_TARGETS={kcal:1900,protein:129,carbs:192,fat:68};
 let savedFoods=[];
-const todayLocal=()=>{const d=new Date();return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10)};
-$("foodDate").value=todayLocal();
-$("navTraining").onclick=()=>show(activePlan?'stepWorkout':'stepTime');
-$("navFood").onclick=()=>{if(!currentUser){$("authMessage").textContent="Accedi prima di utilizzare il diario alimentare."; $("authCard").scrollIntoView({behavior:"smooth"});return;}show("stepFood");loadFoodDay();loadFoodCatalog();};
-function foodNumber(id){const v=Number($(id).value);return Number.isFinite(v)&&v>=0?v:0}
-function foodComputed(){const q=foodNumber("foodQuantity"),factor=q/100;return{kcal:foodNumber("foodKcal")*factor,protein:foodNumber("foodProtein")*factor,carbs:foodNumber("foodCarbs")*factor,fat:foodNumber("foodFat")*factor}}
-function foodPreview(){const x=foodComputed();$("foodPreview").textContent=`${x.kcal.toFixed(1)} kcal · P ${x.protein.toFixed(1)} g · C ${x.carbs.toFixed(1)} g · G ${x.fat.toFixed(1)} g`;}
-["foodQuantity","foodKcal","foodProtein","foodCarbs","foodFat"].forEach(id=>$(id).addEventListener("input",foodPreview));
+let pendingNutritionResult=null;
+let assistantGeneratedWorkout=null;
+function localDate(){const d=new Date();return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10)}
+$("foodDate").value=localDate();
+$("homeTraining").onclick=()=>show("stepTime");
+$("homeFood").onclick=()=>openFood();
+$("navTraining").onclick=()=>show("stepTime");
+$("navFood").onclick=()=>openFood();
+function openFood(){
+ if(!currentUser){$("authMessage").textContent="Accedi prima di utilizzare il diario alimentare.";$("authCard").scrollIntoView({behavior:"smooth"});return;}
+ show("stepFood");loadFoodDay();loadFoodCatalog();
+}
+$("workoutMode").onchange=()=>{$("musclePicker").classList.toggle("hidden",$("workoutMode").value!=="manual")};
+async function callAssistant(action,payload){
+ const result=await supabaseClient.functions.invoke("fitness-assistant",{body:{action,payload}});
+ if(result.error)throw new Error(result.error.message||"Funzione AI non raggiungibile.");
+ if(result.data&&result.data.error)throw new Error(result.data.error);
+ if(!result.data||!result.data.result)throw new Error("Risposta dell'assistente non valida.");
+ return result.data;
+}
+function muscleGroupsSelected(){return Array.from(document.querySelectorAll('input[name="muscleGroup"]:checked')).map(x=>x.value)}
+const originalStartPlan=startPlan;
+startPlan=function(id){
+ if(id!=="AI_ASSISTANT"){originalStartPlan(id);return;}
+ const a=assistantGeneratedWorkout;
+ if(!a||!Array.isArray(a.exercises)||!a.exercises.length){alert("Non trovo la scheda proposta dall'assistente.");return;}
+ activePlan={
+  id:"AI",title:a.title||"Allenamento personalizzato",focus:a.focus||"",
+  badge:"Preparata con AI",desc:a.reasoning_summary||"",
+  aiGenerated:true,selectionMode:a.selection_mode||"auto",
+  requestedGroups:a.requested_groups||[],
+  ex:a.exercises.map(x=>[x.name,x.muscle_group,x.planned_sets,x.rep_range,x.rest_seconds,x.previous_reference||"Nessun riferimento registrato",x.coaching_note||"",x.target_rir||"1-3"])
+ };
+ exercises=activePlan.ex.map((e,i)=>({id:i,name:e[0],group:e[1],sets:e[2],repRange:e[3],rest:e[4],previous:e[5],coachingNote:e[6],targetRir:e[7],registered:false,removed:false,data:Array.from({length:e[2]},()=>({kg:"",reps:"",rir:""})),notes:""}));
+ idx=0;
+ $("workoutTitle").textContent="Scheda AI · "+activePlan.title;
+ const v=$("duration").value;
+ $("workoutDuration").textContent="Tempo scelto: "+(v==="more"?"> 120":v)+" minuti · Riscaldamento: 5 minuti";
+ $("workoutStatus").textContent="IN CORSO";$("workoutStatus").className="tag";
+ renderExercise();show("stepWorkout");
+};
+$("showPlans").onclick=async()=>{
+ if(!currentUser){$("authMessage").textContent="Accedi prima di chiedere una scheda all'assistente.";$("authCard").scrollIntoView({behavior:"smooth"});return;}
+ const mode=$("workoutMode").value;
+ const groups=muscleGroupsSelected();
+ if(mode==="manual"&&!groups.length){alert("Seleziona almeno un gruppo muscolare.");return;}
+ const selected=$("duration").value;
+ const minutes=selected==="more"?130:Number(selected);
+ const payload={available_minutes:minutes,training_minutes:Math.max(1,minutes-5),warmup_minutes:5,selection_mode:mode,muscle_groups:mode==="manual"?groups:[],user_prompt:$("workoutRequest").value.trim(),date:localDate()};
+ $("showPlans").disabled=true;$("showPlans").textContent="L'assistente sta analizzando lo storico…";
+ try{
+  const response=await callAssistant("generate_workout",payload);
+  assistantGeneratedWorkout=response.result;
+  if(!Array.isArray(assistantGeneratedWorkout.exercises)||!assistantGeneratedWorkout.exercises.length)throw new Error("L'assistente non ha restituito esercizi utilizzabili.");
+  $("planIntro").textContent="Proposta personalizzata elaborata considerando lo storico degli allenamenti salvati.";
+  $("planCards").innerHTML="";
+  const card=document.createElement("div");card.className="option selected";card.style.gridColumn="1 / -1";
+  const items=assistantGeneratedWorkout.exercises.map((x,i)=>"<li>"+esc(x.name)+" · "+esc(x.planned_sets)+" serie · "+esc(x.rep_range)+" · recupero "+esc(x.rest_seconds)+" sec</li>").join("");
+  card.innerHTML='<span class="pill good">Proposta dell’assistente</span><h3>'+esc(assistantGeneratedWorkout.title||"Allenamento personalizzato")+'</h3><p>'+esc(assistantGeneratedWorkout.focus||"")+'</p><p class="small muted">'+esc(assistantGeneratedWorkout.reasoning_summary||"")+'</p><ul>'+items+'</ul><button data-plan="AI_ASSISTANT">Avvia questa scheda</button>';
+  $("planCards").appendChild(card);
+  card.querySelector("button").onclick=()=>startPlan("AI_ASSISTANT");
+  show("stepPlans");
+ }catch(error){
+  alert("Non sono riuscito a preparare la scheda: "+error.message+". Verifica che la funzione fitness-assistant sia stata pubblicata e che OPENAI_API_KEY sia configurata su Supabase.");
+ }finally{$("showPlans").disabled=false;$("showPlans").textContent="Chiedi all'assistente di preparare la scheda";}
+};
+function foodEsc(s){return esc(s)}
+function setFoodBusy(busy){$("foodAnalyze").disabled=busy;$("foodAnalyze").textContent=busy?"Calcolo in corso…":"Calcola con l'assistente"}
+function renderFoodProposal(data){
+ pendingNutritionResult=data;
+ const el=$("foodAiResult");
+ let html='<p><strong>'+foodEsc(data.summary||"Proposta pronta per la verifica.")+'</strong></p>';
+ if(data.warnings&&data.warnings.length)html+='<p class="small muted">Attenzione: '+data.warnings.map(foodEsc).join(" · ")+'</p>';
+ if(data.questions&&data.questions.length)html+='<p class="small muted">Da chiarire: '+data.questions.map(foodEsc).join(" · ")+'</p>';
+ let count=0;
+ (data.meals||[]).forEach((meal,mi)=>{
+  html+='<h3 style="margin:12px 0 6px">'+foodEsc(meal.meal_type||"Pasto")+' · '+foodEsc(meal.title||"")+'</h3>';
+  (meal.items||[]).forEach((item,ii)=>{
+   count++;
+   html+='<div class="summaryline"><span><strong>'+foodEsc(item.food_name)+'</strong><br><span class="small muted">'+Number(item.quantity||0)+' '+foodEsc(item.unit||"g")+' · '+foodEsc(item.data_source||"estimated")+'</span></span><span style="text-align:right">'+Number(item.calories||0).toFixed(0)+' kcal<br><span class="small muted">P '+Number(item.protein_g||0).toFixed(1)+' · C '+Number(item.carbs_g||0).toFixed(1)+' · G '+Number(item.fat_g||0).toFixed(1)+'</span></span></div>';
+  });
+ });
+ if(!count)html+='<p class="muted small">Nessun alimento interpretabile. Aggiungi dettagli e riprova.</p>';
+ el.innerHTML=html;el.classList.remove("hidden");
+ $("saveFoodBatch").disabled=count===0;$("clearFoodBatch").disabled=false;
+}
+$("foodAnalyze").onclick=async()=>{
+ if(!currentUser){alert("Accedi prima di utilizzare l'assistente.");return;}
+ const prompt=$("foodPrompt").value.trim();
+ if(!prompt){alert("Scrivi o detta cosa hai mangiato oppure il pasto che vuoi creare.");return;}
+ setFoodBusy(true);
+ try{
+  const task=$("foodTask").value;
+  const response=await callAssistant("nutrition_assist",{
+   task,date:$("foodDate").value||localDate(),prompt,
+   targets:FOOD_TARGETS,
+   requested_status:task==="plan"?"planned":"consumed"
+  });
+  renderFoodProposal(response.result);
+ }catch(error){
+  $("foodAiResult").classList.remove("hidden");
+  $("foodAiResult").textContent="Errore: "+error.message+". Verifica la pubblicazione della funzione AI e la configurazione della chiave OpenAI.";
+ }finally{setFoodBusy(false);}
+};
+$("clearFoodBatch").onclick=()=>{pendingNutritionResult=null;$("foodAiResult").classList.add("hidden");$("foodAiResult").innerHTML="";$("saveFoodBatch").disabled=true;$("clearFoodBatch").disabled=true;};
+$("saveFoodBatch").onclick=async()=>{
+ if(!currentUser||!pendingNutritionResult)return;
+ const meals=pendingNutritionResult.meals||[];
+ if(!meals.length)return;
+ $("saveFoodBatch").disabled=true;$("saveFoodBatch").textContent="Salvataggio…";
+ try{
+  for(const meal of meals){
+   const status=$("foodTask").value==="plan"?"planned":(meal.status||"consumed");
+   const mealInsert=await supabaseClient.from("nutrition_meals").insert({
+    user_id:currentUser.id,meal_date:$("foodDate").value||localDate(),
+    meal_type:meal.meal_type||"Altro",title:meal.title||null,status,
+    notes:pendingNutritionResult.summary||null
+   }).select("id").single();
+   if(mealInsert.error)throw mealInsert.error;
+   const mealId=mealInsert.data.id;
+   const rows=[];
+   for(const item of (meal.items||[])){
+    const qty=Number(item.quantity||0),factor=qty/100;
+    const k=Number(item.kcal_100g||0),p=Number(item.protein_100g||0),c=Number(item.carbs_100g||0),g=Number(item.fat_100g||0);
+    let foodId=null;
+    const catalog=await supabaseClient.from("nutrition_foods").upsert({
+     user_id:currentUser.id,name:String(item.food_name||"Alimento").trim(),
+     category:item.category||null,unit:item.unit||"g",
+     kcal_100g:k,protein_100g:p,carbs_100g:c,fat_100g:g,
+     data_source:item.data_source||"estimated"
+    },{onConflict:"user_id,name"}).select("id").single();
+    if(!catalog.error)foodId=catalog.data.id;
+    rows.push({
+     meal_id:mealId,user_id:currentUser.id,food_id:foodId,
+     food_name:item.food_name||"Alimento",category:item.category||null,
+     quantity:qty,unit:item.unit||"g",kcal_100g:k,protein_100g:p,carbs_100g:c,fat_100g:g,
+     calories:Number((k*factor).toFixed(2)),protein_g:Number((p*factor).toFixed(2)),
+     carbs_g:Number((c*factor).toFixed(2)),fat_g:Number((g*factor).toFixed(2)),
+     data_source:["label","user_provided","estimated"].includes(item.data_source)?item.data_source:"estimated",
+     source_note:item.source_note||null
+    });
+   }
+   if(rows.length){const ins=await supabaseClient.from("nutrition_entries").insert(rows);if(ins.error)throw ins.error;}
+  }
+  pendingNutritionResult=null;$("foodAiResult").innerHTML='<p class="status good">Pasti salvati nel diario e nel catalogo personale.</p>';$("saveFoodBatch").disabled=true;$("clearFoodBatch").disabled=true;
+  await loadFoodDay();await loadFoodCatalog();
+ }catch(error){alert("Salvataggio non completato: "+error.message+". Controlla le tabelle e le policy Supabase.");$("saveFoodBatch").disabled=false;}
+ finally{$("saveFoodBatch").textContent="Conferma e salva tutti i pasti";}
+};
+const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+$("foodMic").onclick=()=>{
+ if(!SpeechRecognition){$("foodVoiceStatus").textContent="Dettatura vocale non supportata da questo browser. Puoi usare la dettatura del sistema o scrivere il testo." ;return;}
+ const rec=new SpeechRecognition();rec.lang="it-IT";rec.interimResults=false;rec.maxAlternatives=1;
+ $("foodVoiceStatus").textContent="Ascolto in corso…";
+ rec.onresult=event=>{const spoken=event.results[0][0].transcript;$("foodPrompt").value=($("foodPrompt").value?$("foodPrompt").value+" ":"")+spoken;$("foodVoiceStatus").textContent="Testo riconosciuto. Premi Calcola con l'assistente.";};
+ rec.onerror=event=>$("foodVoiceStatus").textContent="Dettatura non completata: "+event.error;
+ rec.onend=()=>{};
+ rec.start();
+};
 async function loadFoodDay(){
  if(!currentUser)return;
- $("foodEntries").innerHTML='<p class="muted small">Caricamento diario…</p>';
- const date=$("foodDate").value||todayLocal();
- const res=await supabaseClient.from("nutrition_entries").select("*").eq("user_id",currentUser.id).eq("entry_date",date).order("created_at",{ascending:true});
- if(res.error){$("foodEntries").textContent="Errore caricamento: "+res.error.message;return;}
- const rows=res.data||[];
- const consumed=rows.filter(x=>x.status==="consumed"),planned=rows.filter(x=>x.status==="planned");
- const sum=(arr,k)=>arr.reduce((a,x)=>a+Number(x[k]||0),0);
- const totals={kcal:sum(consumed,"calories"),protein:sum(consumed,"protein_g"),carbs:sum(consumed,"carbs_g"),fat:sum(consumed,"fat_g")};
- const plannedTotals={kcal:sum(planned,"calories"),protein:sum(planned,"protein_g"),carbs:sum(planned,"carbs_g"),fat:sum(planned,"fat_g")};
- const remain={kcal:FOOD_TARGETS.kcal-totals.kcal,protein:FOOD_TARGETS.protein-totals.protein,carbs:FOOD_TARGETS.carbs-totals.carbs,fat:FOOD_TARGETS.fat-totals.fat};
- const metric=(label,value,target,unit)=>`<div class="summaryline"><span>${label}</span><strong>${value.toFixed(1)} / ${target} ${unit}</strong></div><div class="progress"><div style="width:${Math.min(100,Math.max(0,value/target*100))}%"></div></div>`;
- $("foodTotals").innerHTML='<div class="small muted">Consumati · programmati separati</div>'+metric("Calorie",totals.kcal,1900,"kcal")+metric("Proteine",totals.protein,129,"g")+metric("Carboidrati",totals.carbs,192,"g")+metric("Grassi",totals.fat,68,"g")+`<p class="small muted">Residuo sui consumati: ${remain.kcal.toFixed(0)} kcal · P ${remain.protein.toFixed(1)} g · C ${remain.carbs.toFixed(1)} g · G ${remain.fat.toFixed(1)} g</p><p class="small muted">Ancora programmato: ${plannedTotals.kcal.toFixed(0)} kcal · P ${plannedTotals.protein.toFixed(1)} g · C ${plannedTotals.carbs.toFixed(1)} g · G ${plannedTotals.fat.toFixed(1)} g</p>`;
- if(!rows.length){$("foodEntries").innerHTML='<p class="muted small">Nessun alimento registrato per questa data.</p>';return;}
- const meals=["Colazione","Spuntino mattina","Pranzo","Spuntino pomeriggio","Cena","Altro"];
+ $("foodEntries").innerHTML='<p class="small muted">Caricamento…</p>';
+ const date=$("foodDate").value||localDate();
+ const mr=await supabaseClient.from("nutrition_meals").select("*").eq("user_id",currentUser.id).eq("meal_date",date).order("created_at");
+ if(mr.error){$("foodEntries").textContent="Errore: "+mr.error.message;return;}
+ const meals=mr.data||[],ids=meals.map(x=>x.id);
+ let entries=[];
+ if(ids.length){const er=await supabaseClient.from("nutrition_entries").select("*").eq("user_id",currentUser.id).in("meal_id",ids);if(er.error){$("foodEntries").textContent="Errore: "+er.error.message;return;}entries=er.data||[];}
+ const sums={consumed:{kcal:0,p:0,c:0,g:0},planned:{kcal:0,p:0,c:0,g:0}};
+ meals.forEach(m=>entries.filter(e=>e.meal_id===m.id).forEach(e=>{const s=sums[m.status==="planned"?"planned":"consumed"];s.kcal+=Number(e.calories||0);s.p+=Number(e.protein_g||0);s.c+=Number(e.carbs_g||0);s.g+=Number(e.fat_g||0);}));
+ const c=sums.consumed,p=sums.planned;
+ function line(label,v,t,u){const pct=Math.max(0,Math.min(100,v/t*100));return '<div class="summaryline"><span>'+label+'</span><strong>'+v.toFixed(1)+' / '+t+' '+u+'</strong></div><div class="progress"><div style="width:'+pct+'%"></div></div>';}
+ $("foodTotals").innerHTML='<div class="small muted">Consumati · confronto con il target</div>'+line("Calorie",c.kcal,1900,"kcal")+line("Proteine",c.p,129,"g")+line("Carboidrati",c.c,192,"g")+line("Grassi",c.g,68,"g")+'<p class="small muted">Residuo: '+(1900-c.kcal).toFixed(0)+' kcal · P '+(129-c.p).toFixed(1)+' g · C '+(192-c.c).toFixed(1)+' g · G '+(68-c.g).toFixed(1)+' g</p><p class="small muted">Programmato, non incluso nei consumati: '+p.kcal.toFixed(0)+' kcal · P '+p.p.toFixed(1)+' · C '+p.c.toFixed(1)+' · G '+p.g.toFixed(1)+'</p>';
+ if(!meals.length){$("foodEntries").innerHTML='<p class="small muted">Nessun pasto registrato per questa data.</p>';return;}
  let out="";
- meals.forEach(meal=>{const group=rows.filter(x=>x.meal_type===meal);if(!group.length)return;out+=`<h3 style="margin-top:16px">${meal}</h3>`;group.forEach(item=>{out+=`<div class="summaryline"><span><strong>${esc(item.food_name)}</strong><br><span class="small muted">${Number(item.quantity)} ${esc(item.unit||"g")} · ${item.status==="planned"?"Programmato":"Consumato"}</span></span><span style="text-align:right">${Number(item.calories).toFixed(0)} kcal<br><span class="small muted">P ${Number(item.protein_g).toFixed(1)} · C ${Number(item.carbs_g).toFixed(1)} · G ${Number(item.fat_g).toFixed(1)}</span><br><button class="danger" style="margin-top:5px" data-food-delete="${item.id}">Elimina</button></span></div>`;});});
+ meals.forEach(m=>{
+  const group=entries.filter(e=>e.meal_id===m.id);
+  const total=group.reduce((a,e)=>a+Number(e.calories||0),0);
+  out+='<div class="summaryline"><span><strong>'+foodEsc(m.meal_type)+' · '+foodEsc(m.title||"")+'</strong><br><span class="small muted">'+(m.status==="planned"?"Programmato":"Consumato")+' · '+group.length+' alimenti</span><br><span class="small muted">'+group.map(e=>foodEsc(e.food_name)+" ("+Number(e.quantity)+" "+foodEsc(e.unit)+")").join(", ")+'</span></span><span style="text-align:right"><strong>'+total.toFixed(0)+' kcal</strong><br><button class="danger" style="margin-top:5px" data-meal-delete="'+m.id+'">Elimina</button></span></div>';
+ });
  $("foodEntries").innerHTML=out;
- $("foodEntries").querySelectorAll("[data-food-delete]").forEach(btn=>btn.onclick=async()=>{if(!confirm("Eliminare questo alimento dal diario?"))return;const del=await supabaseClient.from("nutrition_entries").delete().eq("id",btn.dataset.foodDelete).eq("user_id",currentUser.id);if(del.error)alert("Errore: "+del.error.message);else loadFoodDay();});
-}
-async function saveFoodEntry(saveCatalog=false){
- if(!currentUser){alert("Accedi prima di salvare.");return;}
- const name=$("foodName").value.trim(),q=foodNumber("foodQuantity");
- if(!name||q<=0){alert("Inserisci alimento e quantità.");return;}
- const v=foodComputed(),date=$("foodDate").value||todayLocal(),category=$("foodCategory").value;
- const payload={user_id:currentUser.id,entry_date:date,meal_type:$("foodMeal").value,food_name:name,category,quantity:q,unit:"g",calories:Number(v.kcal.toFixed(2)),protein_g:Number(v.protein.toFixed(2)),carbs_g:Number(v.carbs.toFixed(2)),fat_g:Number(v.fat.toFixed(2)),status:$("foodStatus").value};
- const res=await supabaseClient.from("nutrition_entries").insert(payload);
- if(res.error){alert("Salvataggio non riuscito: "+res.error.message);return;}
- if(saveCatalog)await saveFoodToCatalog(name,category);
- $("foodName").value="";$("foodQuantity").value="";foodPreview();await loadFoodDay();
-}
-async function saveFoodToCatalog(name,category){
- const payload={user_id:currentUser.id,name,category,kcal_100g:foodNumber("foodKcal"),protein_100g:foodNumber("foodProtein"),carbs_100g:foodNumber("foodCarbs"),fat_100g:foodNumber("foodFat")};
- const res=await supabaseClient.from("nutrition_foods").upsert(payload,{onConflict:"user_id,name"});
- if(res.error)alert("Alimento inserito nel diario, ma non salvato nel catalogo: "+res.error.message);else loadFoodCatalog();
+ $("foodEntries").querySelectorAll("[data-meal-delete]").forEach(btn=>btn.onclick=async()=>{const del=await supabaseClient.from("nutrition_meals").delete().eq("id",btn.dataset.mealDelete).eq("user_id",currentUser.id);if(del.error)alert(del.error.message);else loadFoodDay();});
 }
 async function loadFoodCatalog(){
  if(!currentUser)return;
- const res=await supabaseClient.from("nutrition_foods").select("*").eq("user_id",currentUser.id).order("name");
- if(res.error){$("savedFoodSelect").innerHTML='<option value="">Catalogo non disponibile</option>';return;}
- savedFoods=res.data||[];
- $("savedFoodSelect").innerHTML='<option value="">Seleziona alimento…</option>'+savedFoods.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join("");
+ const r=await supabaseClient.from("nutrition_foods").select("*").eq("user_id",currentUser.id).order("name");
+ if(r.error){$("savedFoodSelect").innerHTML='<option value="">Catalogo non disponibile</option>';return;}
+ savedFoods=r.data||[];
+ $("savedFoodSelect").innerHTML='<option value="">Seleziona alimento…</option>'+savedFoods.map(x=>'<option value="'+x.id+'">'+foodEsc(x.name)+'</option>').join("");
 }
-$("addFoodEntry").onclick=()=>saveFoodEntry(false);
-$("saveFoodCatalog").onclick=()=>saveFoodEntry(true);
 $("refreshFood").onclick=loadFoodDay;
 $("foodDate").onchange=loadFoodDay;
-$("useSavedFood").onclick=()=>{const f=savedFoods.find(x=>x.id===$("savedFoodSelect").value);if(!f)return;$("foodName").value=f.name;$("foodCategory").value=f.category||"Altro";$("foodKcal").value=f.kcal_100g;$("foodProtein").value=f.protein_100g;$("foodCarbs").value=f.carbs_100g;$("foodFat").value=f.fat_100g;foodPreview();};
-supabaseClient.auth.onAuthStateChange((_event,session)=>{if(session&&session.user){setTimeout(()=>{if(!$("stepFood").classList.contains("hidden")){loadFoodDay();loadFoodCatalog();}},250);}});
+$("useSavedFood").onclick=()=>{
+ const f=savedFoods.find(x=>x.id===$("savedFoodSelect").value);if(!f)return;
+ const q=Number($("savedFoodQuantity").value)||100;
+ const text=q+" "+(f.unit||"g")+" "+f.name;
+ $("foodPrompt").value=($("foodPrompt").value?$("foodPrompt").value+"\n":"")+text;
+ $("foodTask").value="log";
+};
+$("foodTask").onchange=()=>{
+ $("foodPrompt").placeholder=$("foodTask").value==="plan"?"Es. Preparami un pranzo con pollo, riso e zucchine da circa 700 kcal, almeno 50 g di proteine.":"Es. Colazione: 50 g crema di riso, 25 g proteine, 150 ml latte di mandorla. Pranzo: 80 g riso e 180 g pollo.";
+};
+supabaseClient.auth.onAuthStateChange((_event,session)=>{
+ if(session&&session.user){setTimeout(()=>{if(!$("stepFood").classList.contains("hidden")){loadFoodDay();loadFoodCatalog();}},250);}
+});
+if(!activePlan)show("stepHome");
 </script>
 </body></html>

@@ -37,6 +37,187 @@ h1{font-size:25px;line-height:1.15;margin:4px 0 8px}h2{font-size:18px;margin:0 0
 .workout-warmup p{margin:0;color:var(--muted);font-size:13px;line-height:1.4}
 #pendingWorkoutPreview{margin-bottom:12px}
 </style>
+<style id="theme-dark-pro">
+:root{
+ color-scheme:dark;
+ --bg:#0b1119;
+ --panel:#141e29;
+ --ink:#edf4fb;
+ --muted:#a0afbf;
+ --line:#2a3949;
+ --active:#43baff;
+ --active-bg:#142d40;
+ --good:#27d995;
+ --good-bg:#103529;
+ --danger:#ff7180;
+ --danger-bg:#3b2029;
+ --shadow:0 12px 32px rgba(0,0,0,.28);
+}
+html{background:var(--bg);scrollbar-color:#3a4a5d var(--bg)}
+body{
+ background:
+  radial-gradient(ellipse at 15% -10%,rgba(39,151,219,.13),transparent 38%),
+  radial-gradient(ellipse at 100% 25%,rgba(39,217,149,.065),transparent 34%),
+  var(--bg);
+ color:var(--ink);
+}
+::selection{background:rgba(67,186,255,.28);color:#fff}
+h1,h2,h3,strong,.brand{color:var(--ink)}
+h1{letter-spacing:-.035em}
+h2{letter-spacing:-.02em}
+.muted,.small,.note{color:var(--muted)}
+.top{margin-bottom:20px}
+.brand{letter-spacing:.075em;font-size:13px}
+.tag,.pill{
+ background:var(--active-bg);
+ color:#a9dcfb;
+ border:1px solid rgba(67,186,255,.2);
+}
+.tag.good,.pill.good{background:var(--good-bg);color:#70edb8;border-color:rgba(39,217,149,.22)}
+.tag.bad,.pill.bad{background:var(--danger-bg);color:#ffadb5;border-color:rgba(255,113,128,.24)}
+.card,.exercise-card,.option{
+ background:linear-gradient(155deg,rgba(25,38,52,.98),rgba(17,26,37,.99));
+ border:1px solid var(--line);
+ box-shadow:var(--shadow);
+}
+.card{border-radius:17px}
+.exercise-card{border-radius:17px}
+.option{border-radius:15px}
+.option.selected{
+ border-color:var(--active);
+ background:linear-gradient(155deg,#142f43,#152331);
+ box-shadow:0 0 0 2px rgba(67,186,255,.15),var(--shadow);
+}
+.option p,.option ul{color:#b8c5d2}
+.option .pill{color:#bde7ff}
+.field label,.exercise-head label,.navigation-below label{color:#d4e0eb}
+select,input,textarea{
+ color:var(--ink);
+ background:#0d1722;
+ border:1px solid #35485b;
+ border-radius:11px;
+ box-shadow:inset 0 1px 2px rgba(0,0,0,.18);
+}
+select:focus,input:focus,textarea:focus{
+ outline:none;
+ border-color:var(--active);
+ box-shadow:0 0 0 3px rgba(67,186,255,.16);
+}
+input::placeholder,textarea::placeholder{color:#718398;opacity:1}
+input:disabled,select:disabled,textarea:disabled{background:#17212c;color:#718094}
+input[type="date"]{color-scheme:dark}
+button{
+ background:linear-gradient(180deg,#278edc,#1677c5);
+ color:#fff;
+ border:1px solid rgba(122,204,255,.25);
+ box-shadow:0 3px 10px rgba(0,0,0,.18);
+ transition:transform .15s ease,filter .15s ease,box-shadow .15s ease;
+}
+button:hover:not(:disabled){filter:brightness(1.1);transform:translateY(-1px)}
+button:active:not(:disabled){transform:translateY(0)}
+button:focus-visible,.bottom-nav button:focus-visible{
+ outline:2px solid var(--active);
+ outline-offset:3px;
+}
+button.secondary{
+ background:#263545;
+ color:#e1eaf3;
+ border-color:#3b4c5e;
+ box-shadow:none;
+}
+button.ghost{
+ background:#172330;
+ color:#d7e3ee;
+ border:1px solid #36495c;
+ box-shadow:none;
+}
+button.good{
+ background:linear-gradient(180deg,#25c987,#139d6c);
+ color:#041c12;
+ border-color:rgba(91,255,183,.35);
+ font-weight:800;
+}
+button.danger{
+ background:linear-gradient(180deg,#e95b6b,#c83f54);
+ color:#fff;
+ border-color:rgba(255,150,160,.2);
+}
+button:disabled{filter:saturate(.5);opacity:.42;transform:none;box-shadow:none}
+.progress{background:#253342;border:1px solid rgba(255,255,255,.035)}
+.progress>div{background:linear-gradient(90deg,#25c987,#43baff);border-radius:99px}
+.exercise-coach{
+ background:#112b3c;
+ color:#b9e6ff;
+ border:1px solid rgba(67,186,255,.16);
+ border-radius:11px;
+}
+.exercise-meta span{
+ background:#1c2a38;
+ color:#c0cedb;
+ border:1px solid #2d4052;
+}
+.timer{
+ background:linear-gradient(135deg,#101a25,#1b2b3b);
+ border:1px solid #34485c;
+ box-shadow:inset 0 1px rgba(255,255,255,.035);
+}
+.timer .small{color:#b5c4d2}
+.timer input{background:#0e1924;border-color:#45596d;color:#fff}
+.timer button{background:#29435a;color:#e5f3ff;border:1px solid #3e5e79;box-shadow:none}
+.timer button.reset{background:#8f3342;border-color:#aa4b5a;color:#fff}
+.sets-head{color:#9eafbf}
+.set-num{color:#a7b7c7}
+.setrow input{background:#0c1722}
+.remove-set{background:#243443!important;color:#d6e5f2!important;border:1px solid #354a5d!important;box-shadow:none!important}
+.navigation-below{border-top-color:var(--line)}
+.exercise-nav button{min-height:42px}
+.foot-actions{
+ background:linear-gradient(transparent,rgba(11,17,25,.96) 20%);
+}
+.summaryline{border-bottom-color:var(--line);color:#ced9e4}
+.status.good{color:#52e7a9}
+.status.active{color:#72caff}
+.status.bad{color:#ff8290}
+.status-legend{color:#a0afbf}
+.dot.good{background:#27d995}
+.dot.active{background:#43baff}
+.dot.bad{background:#ff7180}
+.bottom-nav{
+ background:rgba(12,19,28,.96);
+ border-top:1px solid #2c3d4f;
+ box-shadow:0 -8px 26px rgba(0,0,0,.28);
+}
+.bottom-nav button{color:#93a4b5}
+.bottom-nav button.active{
+ background:#173247;
+ color:#7bd0ff;
+ box-shadow:inset 0 0 0 1px rgba(67,186,255,.18);
+}
+.nav-icon{filter:saturate(.85)}
+.macro-targets span{
+ background:#1b2a38;
+ color:#c9d7e4;
+ border:1px solid #2c4052;
+ border-radius:11px;
+}
+.meal-row{border-bottom-color:var(--line)}
+.meal-macros strong{color:#f1f6fb}
+#foodTotals .progress{height:8px}
+#backupStatus,#jsonStatus,#workoutSaveMessage,#syncStatus,#shareStatus{color:var(--muted)}
+#jsonPreview{background:#101c28;border:1px solid var(--line);border-radius:12px;padding:12px}
+#authCard{border-color:#314459}
+#authLogged .row{align-items:center}
+#exerciseCard{scroll-margin-top:12px}
+@media(max-width:620px){
+ .wrap{padding-left:11px;padding-right:11px;padding-top:13px;padding-bottom:112px}
+ .card,.exercise-card{padding:14px}
+ .bottom-nav{padding-bottom:max(9px,env(safe-area-inset-bottom))}
+ .top{margin-bottom:14px}
+}
+@media(prefers-reduced-motion:reduce){
+ *,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}
+}
+</style>
 </head>
 <body>
 <div class="wrap">

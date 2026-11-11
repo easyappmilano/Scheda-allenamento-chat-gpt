@@ -295,6 +295,7 @@ select jsonb_build_object(
 );
 $function$
 ;
+;
 
 revoke all on function public.get_training_context(uuid, timestamptz) from public;
 revoke all on function public.get_training_context(uuid, timestamptz) from anon;

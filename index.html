@@ -77,7 +77,7 @@ h1{font-size:25px;line-height:1.15;margin:4px 0 8px}h2{font-size:18px;margin:0 0
         </div>
       </div>
       <div class="field"><label for="workoutRequest">Indicazioni aggiuntive (facoltative)</label><textarea id="workoutRequest" rows="2" placeholder="Es. oggi ho più energia, evita esercizi che sovraccaricano la schiena…"></textarea></div>
-      <div class="btnrow" style="margin-top:14px"><button id="showPlans" disabled>Chiedi all'assistente di preparare la scheda</button></div>
+      <div class="btnrow" style="margin-top:14px"><button id="showPlans" disabled>Prepara richiesta per ChatGPT</button></div>
       <p class="note">I 5 minuti di riscaldamento vengono sempre sottratti dal tempo selezionato.</p>
     </div>
   </section>
@@ -477,7 +477,7 @@ $("showPlans").onclick=async()=>{
   card.querySelector("button").onclick=()=>startPlan("AI_ASSISTANT");
   show("stepPlans");
  }catch(error){
-  alert("Non sono riuscito a preparare la scheda: "+error.message+". Verifica che la funzione fitness-assistant sia stata pubblicata e che OPENAI_API_KEY sia configurata su Supabase.");
+  alert("Non sono riuscito a preparare la scheda: "+error.message+". Usa il flusso gratuito: prepara la richiesta, incollala in ChatGPT e riporta qui il JSON.");
  }finally{$("showPlans").disabled=false;$("showPlans").textContent="Chiedi all'assistente di preparare la scheda";}
 };
 function foodEsc(s){return esc(s)}

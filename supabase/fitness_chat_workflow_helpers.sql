@@ -1,5 +1,29 @@
 -- Additive inline-photo support and deployed ChatGPT workflow helper definitions.
 alter table public.fitness_progress_photos add column if not exists image_data text;
+do $
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'fitness_progress_photos_image_data_format_check'
+      and conrelid = 'public.fitness_progress_photos'::regclass
+  ) then
+    alter table public.fitness_progress_photos
+      add constraint fitness_progress_photos_image_data_format_check
+      check (
+        image_data is null
+        or (
+          length(image_data) <= 14000000
+          and (
+            (mime_type = 'image/jpeg' and image_data like 'data:image/jpeg;base64,%')
+            or (mime_type = 'image/png' and image_data like 'data:image/png;base64,%')
+            or (mime_type = 'image/webp' and image_data like 'data:image/webp;base64,%')
+          )
+        )
+      );
+  end if;
+end;
+$;
+
 create index if not exists fitness_progress_photos_checkin_id_idx on public.fitness_progress_photos(checkin_id);
 
 CREATE OR REPLACE FUNCTION public.enqueue_workout_plan(p_user_id uuid, p_source_id text, p_plan_data jsonb)
@@ -76,6 +100,8 @@ begin
 end;
 $function$
 ;
+
+;
 ;
 
 CREATE OR REPLACE FUNCTION public.save_body_weight_entry(p_user_id uuid, p_source_id text, p_measured_at timestamp with time zone, p_weight_kg numeric, p_data_source text DEFAULT 'self_reported'::text, p_context jsonb DEFAULT '{}'::jsonb, p_notes text DEFAULT NULL::text)
@@ -114,6 +140,8 @@ begin
   return jsonb_build_object('weight_entry_id',v_id,'weight_kg',p_weight_kg);
 end;
 $function$
+;
+
 ;
 ;
 
@@ -244,6 +272,8 @@ begin
 end;
 $function$
 ;
+
+;
 ;
 
 CREATE OR REPLACE FUNCTION public.save_fitness_checkin_with_photos(p_user_id uuid, p_source_id text, p_checkin_date date, p_checkin_data jsonb DEFAULT '{}'::jsonb, p_physical_assessment text DEFAULT NULL::text, p_training_assessment text DEFAULT NULL::text, p_nutrition_assessment text DEFAULT NULL::text, p_recovery_assessment text DEFAULT NULL::text, p_next_period_focus jsonb DEFAULT '{}'::jsonb, p_notes text DEFAULT NULL::text, p_measurements jsonb DEFAULT '[]'::jsonb, p_photos jsonb DEFAULT '[]'::jsonb)
@@ -316,6 +346,8 @@ begin
   return v_result || jsonb_build_object('photos_saved',v_photo_count);
 end;
 $function$
+;
+
 ;
 ;
 

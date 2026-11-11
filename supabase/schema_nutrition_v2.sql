@@ -865,6 +865,7 @@ select jsonb_build_object(
 );
 $function$
 ;
+;
 
 revoke all on function public.get_training_context(uuid, timestamptz) from public;
 revoke all on function public.get_training_context(uuid, timestamptz) from anon;
@@ -1252,6 +1253,7 @@ begin
 end;
 $function$
 ;
+;
 
 CREATE OR REPLACE FUNCTION public.save_body_weight_entry(p_user_id uuid, p_source_id text, p_measured_at timestamp with time zone, p_weight_kg numeric, p_data_source text DEFAULT 'self_reported'::text, p_context jsonb DEFAULT '{}'::jsonb, p_notes text DEFAULT NULL::text)
  RETURNS jsonb
@@ -1289,6 +1291,7 @@ begin
   return jsonb_build_object('weight_entry_id',v_id,'weight_kg',p_weight_kg);
 end;
 $function$
+;
 ;
 
 CREATE OR REPLACE FUNCTION public.save_fitness_checkin(p_user_id uuid, p_source_id text, p_checkin_date date, p_checkin_data jsonb DEFAULT '{}'::jsonb, p_physical_assessment text DEFAULT NULL::text, p_training_assessment text DEFAULT NULL::text, p_nutrition_assessment text DEFAULT NULL::text, p_recovery_assessment text DEFAULT NULL::text, p_next_period_focus jsonb DEFAULT '{}'::jsonb, p_notes text DEFAULT NULL::text, p_measurements jsonb DEFAULT '[]'::jsonb)
@@ -1417,6 +1420,7 @@ begin
   );
 end;
 $function$
+;
 ;
 
 revoke all on function public.save_fitness_checkin(uuid,text,date,jsonb,text,text,text,text,jsonb,text,jsonb) from public, anon;
@@ -1708,10 +1712,16 @@ begin
     if nullif(v_image_data,'') is null then
       raise exception 'Ogni foto deve contenere image_data o backup_image_data';
     end if;
+    if length(v_image_data) > 14000000 then
+      raise exception 'Ogni immagine deve essere inferiore a circa 10 MB';
+    end if;
 
     v_mime_type := coalesce(nullif(v_photo->>'mime_type',''),'image/jpeg');
     if v_mime_type not in ('image/jpeg','image/png','image/webp') then
       raise exception 'Formato foto non supportato: %',v_mime_type;
+    end if;
+    if left(v_image_data,length('data:' || v_mime_type || ';base64,')) <> ('data:' || v_mime_type || ';base64,') then
+      raise exception 'Immagine non valida: usare un data URL base64 che corrisponda al mime type';
     end if;
 
     v_photo_type := coalesce(nullif(v_photo->>'photo_type',''),'other');
@@ -1739,6 +1749,7 @@ begin
   return v_result || jsonb_build_object('photos_saved',v_photo_count);
 end;
 $function$
+;
 ;
 
 revoke all on function public.save_fitness_checkin(uuid,text,date,jsonb,text,text,text,text,jsonb,text,jsonb) from public, anon;

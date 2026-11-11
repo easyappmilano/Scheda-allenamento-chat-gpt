@@ -755,8 +755,13 @@ async function collectArchive(scope,date){
   const backupProgressPhotos=[];
   for(const photo of fitnessProgressPhotos){
    const copy=Object.assign({},photo);
-   if(!copy.storage_path)throw new Error("Backup incompleto: una foto dei progressi non ha un percorso di archiviazione.");
-   copy.backup_image_data=await downloadImageForBackup("fitness-progress-photos",copy.storage_path);
+   if(copy.image_data){
+    copy.backup_image_data=copy.image_data;
+   }else if(copy.storage_path&&!String(copy.storage_path).startsWith("inline-data:")){
+    copy.backup_image_data=await downloadImageForBackup("fitness-progress-photos",copy.storage_path);
+   }else{
+    throw new Error("Backup incompleto: una foto dei progressi non contiene dati immagine.");
+   }
    backupProgressPhotos.push(copy);
   }
 
@@ -1009,15 +1014,12 @@ async function importBackup(data){
    const imageData=photo.backup_image_data||photo.image_data;
    if(!imageData)throw new Error("Backup privo del file immagine associato a una foto dei progressi.");
    const mime=photo.mime_type||"image/jpeg";
-   const blob=dataUrlToBlob(imageData,mime);
    const fileKey=safePathSegment(photo.id||((photo.photo_type||"other")+"-"+i));
-   const storagePath=currentUser.id+"/"+checkinId+"/"+fileKey+"."+imageExtension(mime);
-   const upload=await supabaseClient.storage.from("fitness-progress-photos").upload(storagePath,blob,{upsert:true,contentType:mime});
-   if(upload.error)throw upload.error;
+   const storagePath="inline-data:"+currentUser.id+"/"+checkinId+"/"+fileKey;
    const savedPhoto=await supabaseClient.from("fitness_progress_photos").upsert({
     user_id:currentUser.id,checkin_id:checkinId,storage_path:storagePath,
     photo_type:["front","side","back","other"].includes(photo.photo_type)?photo.photo_type:"other",
-    caption:photo.caption||null,mime_type:mime
+    caption:photo.caption||null,mime_type:mime,image_data:imageData
    },{onConflict:"user_id,storage_path"});
    if(savedPhoto.error)throw savedPhoto.error;
   }

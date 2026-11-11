@@ -575,7 +575,7 @@ async function prepareAIReport(){
    nutrition_targets:domain==="nutrition"?FITNESS_TARGETS:null,context:context,
    response_format:domain==="workout"?
     {schema:"fitness-assistant-response",version:1,type:"workout_plan",plan:{title:"",focus:"",duration_minutes:0,warmup_minutes:5,selection_mode:"auto|manual",requested_groups:[],reasoning_summary:"",exercises:[{name:"",muscle_group:"",planned_sets:3,rep_range:"8-12",rest_seconds:90,previous_reference:"",coaching_note:"",target_rir:"1-3"}]}}:
-    {schema:"fitness-assistant-response",version:1,type:"nutrition_plan",date:$("aiDate").value||localISODate(),summary:"",warnings:[],meals:[{meal_type:"Pranzo",title:"",status:"planned|consumed",items:[{food_name:"",category:"",quantity:100,unit:"g",kcal_100g:0,protein_100g:0,carbs_100g:0,fat_100g:0,calories:0,protein_g:0,carbs_g:0,fat_g:0,data_source:"estimated|label|user_provided",source_note:""}]}}
+    {schema:"fitness-assistant-response",version:1,type:"nutrition_plan",date:$("aiDate").value||localISODate(),summary:"",warnings:[],meals:[{meal_type:"Pranzo",title:"",status:"planned|consumed",items:[{food_name:"",category:"",quantity:100,unit:"g",kcal_100g:0,protein_100g:0,carbs_100g:0,fat_100g:0,calories:0,protein_g:0,carbs_g:0,fat_g:0,data_source:"estimated|label|user_provided",source_note:""}]}]}
   };
   downloadJson("richiesta-"+domain+"-"+request.date+".json",request);
   const count=domain==="workout"?context.workouts.length:context.meals.length;

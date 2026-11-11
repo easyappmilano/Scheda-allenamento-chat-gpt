@@ -548,6 +548,7 @@ $("saveFoodBatch").onclick=async()=>{
     if(!catalog.error)foodId=catalog.data.id;
     rows.push({
      meal_id:mealId,user_id:currentUser.id,food_id:foodId,
+     entry_date:$("foodDate").value||localDate(),meal_type:meal.meal_type||"Altro",status:status,
      food_name:item.food_name||"Alimento",category:item.category||null,
      quantity:qty,unit:item.unit||"g",kcal_100g:k,protein_100g:p,carbs_100g:c,fat_100g:g,
      calories:Number((k*factor).toFixed(2)),protein_g:Number((p*factor).toFixed(2)),

@@ -34,4 +34,5 @@ ChatGPT è l'unico livello di ragionamento e pianificazione. L'app non deve chia
 - Il backup comprende allenamenti, serie, pasti, ingredienti, alimenti, ricette, foto, riepiloghi, profilo, check-in, misurazioni, foto progressi, registro pesate e `continuity_data`.
 - Le immagini vengono incorporate nel JSON per non dipendere dai percorsi Storage del vecchio account.
 - In ripristino, rimappa gli ID dei check-in prima di ripristinare misure e foto.
-- Non riattivare automaticamente schede vecchie o sessioni storiche dalla coda.
+- Esporta anche la coda `workout_plans` e l'archivio storico `fitness_workout_plan_archive`.
+- Durante un ripristino inserisci le schede storiche solo in `fitness_workout_plan_archive`; non inserirle mai in `workout_plans` e non riattivare schede precedenti.

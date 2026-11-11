@@ -1,3 +1,13 @@
+-- Le schede create qui in ChatGPT vengono salvate con i relativi metadati.
+alter table public.workouts
+  add column if not exists ai_generated boolean not null default false,
+  add column if not exists selection_mode text,
+  add column if not exists requested_groups text[];
+
+alter table public.workout_exercises
+  add column if not exists coaching_note text,
+  add column if not exists target_rir text;
+
 -- Archivio personale di alimentazione, compatibile con la prima versione del diario.
 -- Eseguire una volta da Supabase > SQL Editor > New query.
 -- Le tabelle workout già esistenti non vengono cancellate né ricreate.
@@ -151,9 +161,9 @@ begin
 end $$;
 
 create unique index if not exists nutrition_meals_user_source_uq
-  on public.nutrition_meals(user_id,source_id) where source_id is not null;
+  on public.nutrition_meals(user_id,source_id);
 create unique index if not exists nutrition_entries_user_source_uq
-  on public.nutrition_entries(user_id,source_id) where source_id is not null;
+  on public.nutrition_entries(user_id,source_id);
 create index if not exists nutrition_meals_user_date_idx
   on public.nutrition_meals(user_id,meal_date desc);
 create index if not exists nutrition_entries_meal_idx

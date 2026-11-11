@@ -27,6 +27,48 @@ h1{font-size:25px;line-height:1.15;margin:4px 0 8px}h2{font-size:18px;margin:0 0
     <div id="authLogged" class="hidden"><div class="row between"><div><strong>Account collegato</strong><div class="small muted" id="authUserEmail"></div></div><button id="logoutBtn" class="ghost" type="button">Esci</button></div></div>
     <p class="note" id="authMessage">Accedi per attivare l'archiviazione online.</p>
   </div>
+  <div class="btnrow" style="margin:12px 0"><button id="navTraining" type="button">Allenamento</button><button id="navFood" class="secondary" type="button">Alimentazione</button></div>
+  <section id="stepFood" class="hidden">
+    <h1>Diario alimentare</h1>
+    <p class="muted">Registra pasti programmati o consumati. I totali giornalieri vengono confrontati con i tuoi obiettivi nutrizionali.</p>
+    <div class="card">
+      <div class="field"><label for="foodDate">Data</label><input id="foodDate" type="date"></div>
+      <div class="row between"><strong>Obiettivi giornalieri</strong><span class="pill">Target attuale</span></div>
+      <div class="summaryline"><span>Calorie</span><strong>1.900 kcal</strong></div>
+      <div class="summaryline"><span>Proteine</span><strong>129 g</strong></div>
+      <div class="summaryline"><span>Carboidrati</span><strong>192 g</strong></div>
+      <div class="summaryline"><span>Grassi</span><strong>68 g</strong></div>
+    </div>
+    <div class="card">
+      <h2>Aggiungi alimento</h2>
+      <div class="field"><label for="foodMeal">Pasto</label><select id="foodMeal"><option>Colazione</option><option>Spuntino mattina</option><option>Pranzo</option><option>Spuntino pomeriggio</option><option>Cena</option><option>Altro</option></select></div>
+      <div class="field"><label for="foodName">Alimento</label><input id="foodName" placeholder="Es. riso basmati, pollo, yogurt greco"></div>
+      <div class="field"><label for="foodCategory">Categoria</label><select id="foodCategory"><option>Carboidrati</option><option>Proteine</option><option>Grassi</option><option>Frutta e verdura</option><option>Latticini</option><option>Altro</option></select></div>
+      <div class="field"><label for="foodQuantity">Quantità (g o ml)</label><input id="foodQuantity" type="number" min="0" step="0.1" placeholder="100"></div>
+      <div class="small muted">Inserisci i valori nutrizionali riferiti a 100 g o 100 ml. L'app calcolerà automaticamente i valori della quantità indicata.</div>
+      <div class="grid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:9px">
+        <div class="field"><label for="foodKcal">Kcal / 100 g</label><input id="foodKcal" type="number" min="0" step="0.1"></div>
+        <div class="field"><label for="foodProtein">Proteine / 100 g</label><input id="foodProtein" type="number" min="0" step="0.1"></div>
+        <div class="field"><label for="foodCarbs">Carboidrati / 100 g</label><input id="foodCarbs" type="number" min="0" step="0.1"></div>
+        <div class="field"><label for="foodFat">Grassi / 100 g</label><input id="foodFat" type="number" min="0" step="0.1"></div>
+      </div>
+      <div class="field"><label for="foodStatus">Stato</label><select id="foodStatus"><option value="consumed">Consumato</option><option value="planned">Programmato</option></select></div>
+      <div class="time-result" id="foodPreview">Inserisci quantità e valori nutrizionali per calcolare i macro.</div>
+      <div class="btnrow" style="margin-top:12px"><button id="addFoodEntry" class="good">Salva alimento nel diario</button><button id="saveFoodCatalog" class="secondary">Salva anche tra i miei alimenti</button></div>
+      <p class="note">I valori inseriti manualmente sono da considerare dichiarati o stimati: indica i valori dell'etichetta quando disponibili.</p>
+    </div>
+    <div class="card">
+      <div class="row between"><h2>Riepilogo della giornata</h2><button id="refreshFood" class="ghost">Aggiorna</button></div>
+      <div id="foodTotals"></div>
+      <div id="foodEntries"><p class="muted small">Seleziona una data per caricare il diario.</p></div>
+    </div>
+    <div class="card">
+      <h2>I miei alimenti salvati</h2>
+      <p class="small muted">Riutilizza i valori nutrizionali già registrati.</p>
+      <div class="field"><label for="savedFoodSelect">Alimento salvato</label><select id="savedFoodSelect"><option value="">Seleziona alimento…</option></select></div>
+      <button id="useSavedFood" class="secondary">Carica alimento nel modulo</button>
+    </div>
+  </section>
   <section id="stepTime">
     <h1>Quanto tempo hai oggi?</h1>
     <p class="muted">Analizzo internamente lo storico, il recupero e i gruppi muscolari. Ti mostro tre alternative senza riportare l'elenco delle vecchie sessioni.</p>
@@ -67,7 +109,7 @@ const plans=[
 ];
 const exerciseLibrary=['Leg press 45°','Squat al multipower','Goblet squat','Leg extension','Leg curl','Stacco rumeno','Hip thrust','Adductor machine','Abductor machine','Calf raise','Crunch al cavo','Crunch su panca','Plank','Knees to chest alla sbarra'];
 let activePlan=null,exercises=[],idx=0,timerLeft=120,timerInt=null;
-function show(id){['stepTime','stepPlans','stepWorkout','stepSummary'].forEach(s=>$(s).classList.toggle('hidden',s!==id));window.scrollTo({top:0,behavior:'smooth'})}
+function show(id){['stepTime','stepPlans','stepWorkout','stepSummary','stepFood'].forEach(s=>$(s).classList.toggle('hidden',s!==id));window.scrollTo({top:0,behavior:'smooth'})}
 function fmt(n){return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0')}
 function stopTimer(state='In pausa'){if(timerInt){clearInterval(timerInt);timerInt=null}if($('timerState'))$('timerState').textContent=state}
 function setTimer(n){timerLeft=Math.max(0,Number(n)||0);$('timerDisplay').textContent=fmt(timerLeft)}
@@ -366,5 +408,68 @@ $("restart").onclick = function() {
   workoutStartedAt = null;
   try { localStorage.removeItem(SESSION_META_KEY); } catch (e) {}
 };
+</script>
+
+<script>
+const FOOD_TARGETS={kcal:1900,protein:129,carbs:192,fat:68};
+let savedFoods=[];
+const todayLocal=()=>{const d=new Date();return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10)};
+$("foodDate").value=todayLocal();
+$("navTraining").onclick=()=>show(activePlan?'stepWorkout':'stepTime');
+$("navFood").onclick=()=>{if(!currentUser){$("authMessage").textContent="Accedi prima di utilizzare il diario alimentare."; $("authCard").scrollIntoView({behavior:"smooth"});return;}show("stepFood");loadFoodDay();loadFoodCatalog();};
+function foodNumber(id){const v=Number($(id).value);return Number.isFinite(v)&&v>=0?v:0}
+function foodComputed(){const q=foodNumber("foodQuantity"),factor=q/100;return{kcal:foodNumber("foodKcal")*factor,protein:foodNumber("foodProtein")*factor,carbs:foodNumber("foodCarbs")*factor,fat:foodNumber("foodFat")*factor}}
+function foodPreview(){const x=foodComputed();$("foodPreview").textContent=`${x.kcal.toFixed(1)} kcal · P ${x.protein.toFixed(1)} g · C ${x.carbs.toFixed(1)} g · G ${x.fat.toFixed(1)} g`;}
+["foodQuantity","foodKcal","foodProtein","foodCarbs","foodFat"].forEach(id=>$(id).addEventListener("input",foodPreview));
+async function loadFoodDay(){
+ if(!currentUser)return;
+ $("foodEntries").innerHTML='<p class="muted small">Caricamento diario…</p>';
+ const date=$("foodDate").value||todayLocal();
+ const res=await supabaseClient.from("nutrition_entries").select("*").eq("user_id",currentUser.id).eq("entry_date",date).order("created_at",{ascending:true});
+ if(res.error){$("foodEntries").textContent="Errore caricamento: "+res.error.message;return;}
+ const rows=res.data||[];
+ const consumed=rows.filter(x=>x.status==="consumed"),planned=rows.filter(x=>x.status==="planned");
+ const sum=(arr,k)=>arr.reduce((a,x)=>a+Number(x[k]||0),0);
+ const totals={kcal:sum(consumed,"calories"),protein:sum(consumed,"protein_g"),carbs:sum(consumed,"carbs_g"),fat:sum(consumed,"fat_g")};
+ const plannedTotals={kcal:sum(planned,"calories"),protein:sum(planned,"protein_g"),carbs:sum(planned,"carbs_g"),fat:sum(planned,"fat_g")};
+ const remain={kcal:FOOD_TARGETS.kcal-totals.kcal,protein:FOOD_TARGETS.protein-totals.protein,carbs:FOOD_TARGETS.carbs-totals.carbs,fat:FOOD_TARGETS.fat-totals.fat};
+ const metric=(label,value,target,unit)=>`<div class="summaryline"><span>${label}</span><strong>${value.toFixed(1)} / ${target} ${unit}</strong></div><div class="progress"><div style="width:${Math.min(100,Math.max(0,value/target*100))}%"></div></div>`;
+ $("foodTotals").innerHTML='<div class="small muted">Consumati · programmati separati</div>'+metric("Calorie",totals.kcal,1900,"kcal")+metric("Proteine",totals.protein,129,"g")+metric("Carboidrati",totals.carbs,192,"g")+metric("Grassi",totals.fat,68,"g")+`<p class="small muted">Residuo sui consumati: ${remain.kcal.toFixed(0)} kcal · P ${remain.protein.toFixed(1)} g · C ${remain.carbs.toFixed(1)} g · G ${remain.fat.toFixed(1)} g</p><p class="small muted">Ancora programmato: ${plannedTotals.kcal.toFixed(0)} kcal · P ${plannedTotals.protein.toFixed(1)} g · C ${plannedTotals.carbs.toFixed(1)} g · G ${plannedTotals.fat.toFixed(1)} g</p>`;
+ if(!rows.length){$("foodEntries").innerHTML='<p class="muted small">Nessun alimento registrato per questa data.</p>';return;}
+ const meals=["Colazione","Spuntino mattina","Pranzo","Spuntino pomeriggio","Cena","Altro"];
+ let out="";
+ meals.forEach(meal=>{const group=rows.filter(x=>x.meal_type===meal);if(!group.length)return;out+=`<h3 style="margin-top:16px">${meal}</h3>`;group.forEach(item=>{out+=`<div class="summaryline"><span><strong>${esc(item.food_name)}</strong><br><span class="small muted">${Number(item.quantity)} ${esc(item.unit||"g")} · ${item.status==="planned"?"Programmato":"Consumato"}</span></span><span style="text-align:right">${Number(item.calories).toFixed(0)} kcal<br><span class="small muted">P ${Number(item.protein_g).toFixed(1)} · C ${Number(item.carbs_g).toFixed(1)} · G ${Number(item.fat_g).toFixed(1)}</span><br><button class="danger" style="margin-top:5px" data-food-delete="${item.id}">Elimina</button></span></div>`;});});
+ $("foodEntries").innerHTML=out;
+ $("foodEntries").querySelectorAll("[data-food-delete]").forEach(btn=>btn.onclick=async()=>{if(!confirm("Eliminare questo alimento dal diario?"))return;const del=await supabaseClient.from("nutrition_entries").delete().eq("id",btn.dataset.foodDelete).eq("user_id",currentUser.id);if(del.error)alert("Errore: "+del.error.message);else loadFoodDay();});
+}
+async function saveFoodEntry(saveCatalog=false){
+ if(!currentUser){alert("Accedi prima di salvare.");return;}
+ const name=$("foodName").value.trim(),q=foodNumber("foodQuantity");
+ if(!name||q<=0){alert("Inserisci alimento e quantità.");return;}
+ const v=foodComputed(),date=$("foodDate").value||todayLocal(),category=$("foodCategory").value;
+ const payload={user_id:currentUser.id,entry_date:date,meal_type:$("foodMeal").value,food_name:name,category,quantity:q,unit:"g",calories:Number(v.kcal.toFixed(2)),protein_g:Number(v.protein.toFixed(2)),carbs_g:Number(v.carbs.toFixed(2)),fat_g:Number(v.fat.toFixed(2)),status:$("foodStatus").value};
+ const res=await supabaseClient.from("nutrition_entries").insert(payload);
+ if(res.error){alert("Salvataggio non riuscito: "+res.error.message);return;}
+ if(saveCatalog)await saveFoodToCatalog(name,category);
+ $("foodName").value="";$("foodQuantity").value="";foodPreview();await loadFoodDay();
+}
+async function saveFoodToCatalog(name,category){
+ const payload={user_id:currentUser.id,name,category,kcal_100g:foodNumber("foodKcal"),protein_100g:foodNumber("foodProtein"),carbs_100g:foodNumber("foodCarbs"),fat_100g:foodNumber("foodFat")};
+ const res=await supabaseClient.from("nutrition_foods").upsert(payload,{onConflict:"user_id,name"});
+ if(res.error)alert("Alimento inserito nel diario, ma non salvato nel catalogo: "+res.error.message);else loadFoodCatalog();
+}
+async function loadFoodCatalog(){
+ if(!currentUser)return;
+ const res=await supabaseClient.from("nutrition_foods").select("*").eq("user_id",currentUser.id).order("name");
+ if(res.error){$("savedFoodSelect").innerHTML='<option value="">Catalogo non disponibile</option>';return;}
+ savedFoods=res.data||[];
+ $("savedFoodSelect").innerHTML='<option value="">Seleziona alimento…</option>'+savedFoods.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join("");
+}
+$("addFoodEntry").onclick=()=>saveFoodEntry(false);
+$("saveFoodCatalog").onclick=()=>saveFoodEntry(true);
+$("refreshFood").onclick=loadFoodDay;
+$("foodDate").onchange=loadFoodDay;
+$("useSavedFood").onclick=()=>{const f=savedFoods.find(x=>x.id===$("savedFoodSelect").value);if(!f)return;$("foodName").value=f.name;$("foodCategory").value=f.category||"Altro";$("foodKcal").value=f.kcal_100g;$("foodProtein").value=f.protein_100g;$("foodCarbs").value=f.carbs_100g;$("foodFat").value=f.fat_100g;foodPreview();};
+supabaseClient.auth.onAuthStateChange((_event,session)=>{if(session&&session.user){setTimeout(()=>{if(!$("stepFood").classList.contains("hidden")){loadFoodDay();loadFoodCatalog();}},250);}});
 </script>
 </body></html>

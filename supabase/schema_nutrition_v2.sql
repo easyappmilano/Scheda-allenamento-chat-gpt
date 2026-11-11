@@ -78,7 +78,10 @@ alter table public.nutrition_entries
   add column if not exists carbs_100g numeric(10,2) not null default 0,
   add column if not exists fat_100g numeric(10,2) not null default 0,
   add column if not exists data_source text not null default 'estimated',
-  add column if not exists source_note text;
+  add column if not exists source_note text,
+  add column if not exists entry_date date,
+  add column if not exists meal_type text,
+  add column if not exists status text not null default 'consumed';
 
 -- Se erano già presenti record nel vecchio diario, li raggruppa per giorno e tipo di pasto.
 do $

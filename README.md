@@ -10,6 +10,7 @@ La pianificazione e l'analisi restano in ChatGPT; non è prevista alcuna API AI 
 - `supabase/fitness_progress_and_training_context.sql`: profilo, check-in, misurazioni, foto e RPC di contesto.
 - `supabase/fitness_weight_entries_and_progress_context.sql`: pesate puntuali, media 7 giorni e riepiloghi nutrizionali 14 giorni.
 - `supabase/fitness_chat_workflow_helpers.sql`: funzioni transazionali per check-in, pesate, foto e accodamento schede.
+- `supabase/fitness_workout_plan_archive.sql`: archivio storico di schede importate, separato dalla coda attiva.
 - `supabase/CHATGPT_WORKFLOW.md`: protocollo conversazionale per ChatGPT.
 
 ## Flussi

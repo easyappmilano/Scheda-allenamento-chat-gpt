@@ -879,6 +879,38 @@ async function collectArchive(scope,date){
   return q.range(a,b);
  };
  const workouts=await readAllPages(workoutsQuery);
+ const queuedWorkoutPlans=await readAllPages(function(a,b){
+  let q=supabaseClient.from("workout_plans").select("*").eq("user_id",uid).order("created_at",{ascending:false});
+  if(from){q=q.gte("created_at",isoStart(from)).lt("created_at",isoEnd(to));}
+  return q.range(a,b);
+ });
+ const archivedWorkoutPlans=await readAllPages(function(a,b){
+  let q=supabaseClient.from("fitness_workout_plan_archive").select("*").eq("user_id",uid).order("original_created_at",{ascending:false});
+  if(from){q=q.gte("original_created_at",isoStart(from)).lt("original_created_at",isoEnd(to));}
+  return q.range(a,b);
+ });
+ const workoutPlanMap=new Map();
+ for(const archived of archivedWorkoutPlans){
+  const key=archived.archive_key||("id:"+(archived.original_plan_id||archived.id));
+  workoutPlanMap.set(key,{
+   id:archived.original_plan_id||archived.id,
+   source_id:archived.source_id,
+   status:archived.original_status,
+   plan_data:archived.plan_data,
+   created_at:archived.original_created_at,
+   started_at:archived.original_started_at,
+   completed_at:archived.original_completed_at,
+   workout_id:archived.original_workout_id,
+   archive_key:key,
+   archive_record_type:"archived"
+  });
+ }
+ for(const queued of queuedWorkoutPlans){
+  const key=queued.source_id?("source:"+queued.source_id):("id:"+queued.id);
+  workoutPlanMap.set(key,Object.assign({},queued,{archive_key:key,archive_record_type:"queue"}));
+ }
+ const workoutPlans=Array.from(workoutPlanMap.values());
+
  const workoutIds=workouts.map(function(w){return w.id;});
  let exerciseRows=[],setRows=[];
  if(workoutIds.length){
@@ -964,7 +996,7 @@ async function collectArchive(scope,date){
   nutrition_recipes:recipes,daily_nutrition_summaries:dailySummaries,nutrition_food_photos:backupFoodPhotos,
    fitness_profile:profileResult.data||null,fitness_checkins:fitnessCheckins,
    fitness_measurements:fitnessMeasurements,fitness_progress_photos:backupProgressPhotos,
-   fitness_weight_entries:weightEntries,
+   fitness_weight_entries:weightEntries,workout_plans:workoutPlans,
    continuity_data:{
     generated_at:new Date().toISOString(),
     assistant_workflow_version:1,
@@ -1149,6 +1181,25 @@ async function importBackup(data){
    if(savedProfile.error)throw savedProfile.error;
   }
   const checkinIdMap={};
+  // Restore historical plans into a separate archive table, never into the live polling queue.
+  for(const plan of (data.workout_plans||[])){
+   const archiveKey=String(plan.archive_key||(plan.source_id?("source:"+plan.source_id):("id:"+plan.id)));
+   const archivedPlan=await supabaseClient.from("fitness_workout_plan_archive").upsert({
+    user_id:currentUser.id,
+    archive_key:archiveKey,
+    original_plan_id:plan.id?String(plan.id):null,
+    source_id:plan.source_id||null,
+    original_status:["pending","in_progress","completed","cancelled"].includes(plan.status)?plan.status:"cancelled",
+    plan_data:plan.plan_data||{},
+    original_created_at:plan.created_at||null,
+    original_started_at:plan.started_at||null,
+    original_completed_at:plan.completed_at||null,
+    original_workout_id:plan.workout_id?String(plan.workout_id):null,
+    archive_source:"backup_restore"
+   },{onConflict:"user_id,archive_key"});
+   if(archivedPlan.error)throw archivedPlan.error;
+  }
+
   for(const weight of (data.fitness_weight_entries||[])){
    const sourceId=String(weight.source_id||("backup-weight-"+weight.id));
    const savedWeight=await supabaseClient.from("fitness_weight_entries").upsert({

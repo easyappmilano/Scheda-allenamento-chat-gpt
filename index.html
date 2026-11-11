@@ -682,6 +682,17 @@ async function collectArchive(scope,date){
  let entries=[];
  if(mealIds.length)entries=await readAllPages(function(a,b){return supabaseClient.from("nutrition_entries").select("*").eq("user_id",uid).in("meal_id",mealIds).range(a,b);});
  const foods=await readAllPages(function(a,b){return supabaseClient.from("nutrition_foods").select("*").eq("user_id",uid).order("name").range(a,b);});
+ const referencedRecipeIds=[...new Set(meals.map(function(m){return m.recipe_id;}).filter(Boolean))];
+ let recipes=[];
+ if(referencedRecipeIds.length)recipes=await readAllPages(function(a,b){return supabaseClient.from("nutrition_recipes").select("*").eq("user_id",uid).in("id",referencedRecipeIds).range(a,b);});
+ let dailySummaries=await readAllPages(function(a,b){
+  let q=supabaseClient.from("daily_nutrition_summaries").select("*").eq("user_id",uid).order("summary_date",{ascending:false});
+  if(from)q=q.gte("summary_date",from).lte("summary_date",to);
+  return q.range(a,b);
+ });
+ const foodIds=[...new Set(entries.map(function(e){return e.food_id;}).filter(Boolean))];
+ let foodPhotos=[];
+ if(foodIds.length)foodPhotos=await readAllPages(function(a,b){return supabaseClient.from("nutrition_food_photos").select("*").eq("user_id",uid).in("food_id",foodIds).range(a,b);});
  const nestedWorkouts=workouts.map(function(w){
   return Object.assign({},w,{
    exercises:exerciseRows.filter(function(e){return e.workout_id===w.id;}).map(function(e){
@@ -692,12 +703,14 @@ async function collectArchive(scope,date){
   });
  });
  const nestedMeals=meals.map(function(m){
-  return Object.assign({},m,{items:entries.filter(function(e){return e.meal_id===m.id;})});
+  const recipe=recipes.find(function(r){return r.id===m.recipe_id;});
+  return Object.assign({},m,{recipe_source_id:recipe?recipe.source_id:null,items:entries.filter(function(e){return e.meal_id===m.id;})});
  });
  return {
   schema:BACKUP_SCHEMA,version:3,type:"fitness_diary_backup",
   exported_at:new Date().toISOString(),period:{type:scope,from:from,to:to},
-  workouts:nestedWorkouts,nutrition_meals:nestedMeals,nutrition_foods:foods
+  workouts:nestedWorkouts,nutrition_meals:nestedMeals,nutrition_foods:foods,
+  nutrition_recipes:recipes,daily_nutrition_summaries:dailySummaries,nutrition_food_photos:foodPhotos
  };
 }
 $("downloadBackup").onclick=async function(){
@@ -854,8 +867,27 @@ async function importBackup(data){
  const workouts=data.workouts||[];
  const meals=data.nutrition_meals||data.meals||[];
  const foods=data.nutrition_foods||[];
+ const recipes=data.nutrition_recipes||[];
+ const recipeIdMap={};
+ const foodIdMap={};
  for(const w of workouts)await importOneWorkout(w);
- for(let i=0;i<meals.length;i++)await importOneNutritionMeal(meals[i],i);
+ for(const recipe of recipes){
+  const sourceId=String(recipe.source_id||("backup-recipe-"+recipe.id));
+  const saved=await supabaseClient.from("nutrition_recipes").upsert({
+   user_id:currentUser.id,source_id:sourceId,name:recipe.name||"Ricetta",
+   description:recipe.description||null,ingredients:recipe.ingredients||[],
+   instructions:recipe.instructions||[],servings:recipe.servings||null,
+   total_kcal:recipe.total_kcal||null,total_protein_g:recipe.total_protein_g||null,
+   total_carbs_g:recipe.total_carbs_g||null,total_fat_g:recipe.total_fat_g||null,
+   photo_path:recipe.photo_path||null
+  },{onConflict:"user_id,source_id"}).select("id,source_id").single();
+  if(saved.error)throw saved.error;
+  recipeIdMap[recipe.id]=saved.data.id;recipeIdMap[sourceId]=saved.data.id;
+ }
+ for(let i=0;i<meals.length;i++){
+  const meal=Object.assign({},meals[i],{recipe_id:recipeIdMap[meals[i].recipe_source_id]||recipeIdMap[meals[i].recipe_id]||meals[i].recipe_id||null});
+  await importOneNutritionMeal(meal,i);
+ }
  for(const food of foods){
   const payload={
    user_id:currentUser.id,name:food.name,category:food.category||null,unit:food.unit||"g",
@@ -866,8 +898,28 @@ async function importBackup(data){
    data_source:["label","user_provided","estimated"].includes(food.data_source)?food.data_source:"estimated",
    barcode:food.barcode||null
   };
-  const f=await supabaseClient.from("nutrition_foods").upsert(payload,{onConflict:"user_id,name"});
+  const f=await supabaseClient.from("nutrition_foods").upsert(payload,{onConflict:"user_id,name"}).select("id,name").single();
   if(f.error)throw f.error;
+  foodIdMap[food.id]=f.data.id;foodIdMap[food.name]=f.data.id;
+ }
+ const photoRows=data.nutrition_food_photos||[];
+ for(const photo of photoRows){
+  const foodId=foodIdMap[photo.food_id]||photo.food_id;
+  if(!foodId||!photo.storage_path)continue;
+  const savedPhoto=await supabaseClient.from("nutrition_food_photos").upsert({
+   user_id:currentUser.id,food_id:foodId,storage_path:photo.storage_path,caption:photo.caption||null
+  },{onConflict:"user_id,storage_path"});
+  if(savedPhoto.error)throw savedPhoto.error;
+ }
+ const summaries=data.daily_nutrition_summaries||[];
+ for(const summary of summaries){
+  const savedSummary=await supabaseClient.from("daily_nutrition_summaries").upsert({
+   user_id:currentUser.id,summary_date:summary.summary_date,total_kcal:summary.total_kcal,
+   total_protein_g:summary.total_protein_g,total_carbs_g:summary.total_carbs_g,
+   total_fat_g:summary.total_fat_g,notes:summary.notes||null,source_id:summary.source_id||null,
+   finalized_at:summary.finalized_at||null
+  },{onConflict:"user_id,summary_date"});
+  if(savedSummary.error)throw savedSummary.error;
  }
  await loadFoodDay();await loadWeeklyFoodSummary();
 }
@@ -890,7 +942,7 @@ $("applyJsonImport").onclick=async function(){
   const type=data.type||data.kind||(data.schema===BACKUP_SCHEMA?"fitness_diary_backup":"");
   if(type==="workout_plan"||(data.schema==="fitness-assistant-response"&&data.type==="workout_plan")){
    loadWorkoutPlanFile(data);
-   $("jsonStatus").textContent="Scheda caricata. Apri Allenamento e premi “Inizia allenamento”.";
+   $("jsonStatus").textContent="Scheda caricata e avviata nella sezione Allenamento.";
    appPage("training");
   }else if(type==="nutrition_plan"){
    await importOneNutritionMeal({meal_date:data.date||localDateString(),meal_type:"Piano importato",title:data.summary||"Piano alimentare",status:"planned",notes:data.summary,items:[]},0);

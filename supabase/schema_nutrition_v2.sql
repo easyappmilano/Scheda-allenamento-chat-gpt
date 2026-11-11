@@ -593,16 +593,12 @@ create policy "Fitness progress photos delete own" on storage.objects
     and (storage.foldername(name))[1] = (select auth.uid())::text
   );
 
-create or replace function public.get_training_context(
-  p_user_id uuid,
-  p_as_of timestamptz default now()
-)
-returns jsonb
-language sql
-stable
-security invoker
-set search_path = public, pg_temp
-as $function$
+CREATE OR REPLACE FUNCTION public.get_training_context(p_user_id uuid, p_as_of timestamp with time zone DEFAULT now())
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE
+ SET search_path TO 'public', 'pg_temp'
+AS $function$
 with
 params as (
   select p_user_id as uid, p_as_of as as_of
@@ -740,13 +736,44 @@ recent_sessions as (
   select * from session_rollup
   order by finished_at desc
   limit 12
+),
+weight_entries_7d as (
+  select we.measured_at,we.weight_kg,we.data_source,we.context,we.notes
+  from public.fitness_weight_entries we
+  cross join params p
+  where we.user_id=p.uid
+    and we.measured_at<=p.as_of
+    and we.measured_at>=p.as_of-interval '7 days'
+),
+weight_trend as (
+  select
+    count(*)::integer as readings,
+    round(avg(weight_kg),2) as average_kg,
+    round((array_agg(weight_kg order by measured_at desc))[1],2) as latest_kg
+  from weight_entries_7d
+  where coalesce(
+    (context->>'include_in_average')::boolean,
+    (context->>'standardized')::boolean,
+    true
+  ) = true
+),
+nutrition_days as (
+  select ns.summary_date,ns.total_kcal,ns.total_protein_g,ns.total_carbs_g,ns.total_fat_g
+  from public.daily_nutrition_summaries ns
+  cross join params p
+  where ns.user_id=p.uid
+    and ns.summary_date >= (p.as_of at time zone 'Europe/Rome')::date-13
+    and ns.summary_date <= (p.as_of at time zone 'Europe/Rome')::date
+  order by ns.summary_date desc
 )
 select jsonb_build_object(
   'generated_at', (select as_of from params),
   'windows', jsonb_build_object(
     'muscle_group_recency_days', 7,
     'exercise_performance_days', 42,
-    'exercise_sessions_returned_per_movement', 3
+    'exercise_sessions_returned_per_movement', 3,
+    'weight_average_days', 7,
+    'nutrition_summary_days', 14
   ),
   'profile', coalesce((
     select to_jsonb(fp) - 'id' - 'user_id'
@@ -783,6 +810,16 @@ select jsonb_build_object(
     order by c.checkin_date desc, c.completed_at desc
     limit 1
   ), '{}'::jsonb),
+  'body_weight_last_7_days', coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'measured_at',w.measured_at,'weight_kg',w.weight_kg,
+      'data_source',w.data_source,'context',w.context,'notes',w.notes
+    ) order by w.measured_at desc)
+    from weight_entries_7d w
+  ), '[]'::jsonb),
+  'body_weight_average_7_days', (select average_kg from weight_trend),
+  'body_weight_latest_7_days', (select latest_kg from weight_trend),
+  'body_weight_readings_7_days', (select readings from weight_trend),
   'muscle_groups_last_7_days', coalesce((
     select jsonb_agg(to_jsonb(g) order by g.last_trained_at desc)
     from weekly_groups g
@@ -808,9 +845,26 @@ select jsonb_build_object(
       'data_quality_flags', s.data_quality_flags
     ) order by s.finished_at desc)
     from recent_sessions s
-  ), '[]'::jsonb)
+  ), '[]'::jsonb),
+  'nutrition_last_14_days', coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'date',n.summary_date,'kcal',n.total_kcal,'protein_g',n.total_protein_g,
+      'carbs_g',n.total_carbs_g,'fat_g',n.total_fat_g
+    ) order by n.summary_date desc)
+    from nutrition_days n
+  ), '[]'::jsonb),
+  'nutrition_average_14_days', coalesce((
+    select jsonb_build_object(
+      'days_recorded',count(*)::integer,
+      'kcal',round(avg(total_kcal),1),
+      'protein_g',round(avg(total_protein_g),1),
+      'carbs_g',round(avg(total_carbs_g),1),
+      'fat_g',round(avg(total_fat_g),1)
+    ) from nutrition_days
+  ), '{}'::jsonb)
 );
-$function$;
+$function$
+;
 
 revoke all on function public.get_training_context(uuid, timestamptz) from public;
 revoke all on function public.get_training_context(uuid, timestamptz) from anon;

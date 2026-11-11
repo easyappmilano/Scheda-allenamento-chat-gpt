@@ -433,13 +433,7 @@ function openFood(){
  show("stepFood");loadFoodDay();loadFoodCatalog();
 }
 $("workoutMode").onchange=()=>{$("musclePicker").classList.toggle("hidden",$("workoutMode").value!=="manual")};
-async function callAssistant(action,payload){
- const result=await supabaseClient.functions.invoke("fitness-assistant",{body:{action,payload}});
- if(result.error)throw new Error(result.error.message||"Funzione AI non raggiungibile.");
- if(result.data&&result.data.error)throw new Error(result.data.error);
- if(!result.data||!result.data.result)throw new Error("Risposta dell'assistente non valida.");
- return result.data;
-}
+// AI senza API: le richieste vengono trasferite a ChatGPT tramite copia e incolla.
 function muscleGroupsSelected(){return Array.from(document.querySelectorAll('input[name="muscleGroup"]:checked')).map(x=>x.value)}
 const originalStartPlan=startPlan;
 startPlan=function(id){

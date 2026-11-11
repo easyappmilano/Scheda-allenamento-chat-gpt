@@ -1,74 +1,37 @@
-# Flusso operativo Fitness Diary + ChatGPT
+# ChatGPT workflow — Tracciamento personale
 
-## Principi
-- L'app resta una companion manuale: nessuna chiamata a OpenAI o ad altre AI, nessun costo API ricorrente.
-- ChatGPT gestisce ragionamento, pianificazione, diario alimentare e analisi.
-- Supabase conserva profilo, check-in, misurazioni, allenamenti, piani e dati nutrizionali.
-- L'app continua ad avere solo tre sezioni: Allenamento, Alimentazione, File JSON.
-- Non cambiare i target nutrizionali senza approvazione esplicita: 1.900 kcal, 129 g proteine, 192 g carboidrati, 68 g grassi.
+## Principio architetturale
+ChatGPT è l'unico livello di ragionamento e pianificazione. L'app non deve chiamare API AI e non integra assistenti. Supabase conserva lo storico personale. Non modificare le tre schede dell'app né il codice esistente di sessione, timer, autosalvataggio e registrazione.
 
-## Aggiornamento forma fisica
-Trigger: l'utente scrive "Aggiornamento forma fisica".
-1. Leggere profilo e ultimo check-in; chiedere solo i campi mancanti o non più attuali.
-2. Raccogliere data, peso standardizzato, circonferenze se disponibili, BF solo se misurata/indicata con fonte e metodo, foto facoltative, recupero, sonno, aderenza nutrizionale e allenamento.
-3. Distinguere sempre valori misurati, auto-riferiti, stimati e non disponibili.
-4. Analizzare variazioni usando lo storico; non interpretare una singola pesata come variazione di tessuto.
-5. Salvare il check-in completo con una sola chiamata a `public.save_fitness_checkin`; non richiedere conferma per il salvataggio del check-in già completato.
-6. Qualunque variazione dei target kcal o macro richiede approvazione esplicita.
+## Comando: «Aggiornamento forma fisica»
+1. Leggi il contesto con una sola chiamata a `get_training_context(p_user_id)`.
+2. Chiedi solo i dati mancanti o da riconfermare. Usa una conversazione normale e non chiedere di nuovo informazioni già aggiornate.
+3. Distingui sempre valori misurati, auto-riferiti, stimati e non disponibili.
+4. Quando le risposte obbligatorie sono complete, salva l'intero aggiornamento con una sola chiamata a `save_fitness_checkin(..., p_measurements)`. Usa un `source_id` stabile e univoco. La funzione registra check-in, misurazioni e, quando presente `body_weight`, anche la pesata nel registro giornaliero.
+5. Se l'utente invia anche fotografie, usa `save_fitness_checkin_with_photos(..., p_measurements, p_photos)`: include le immagini come data URL/base64 con mime type e vista (front/side/back). Le immagini sono conservate nel database con RLS attivo e incluse nel backup JSON.
+6. Per una pesata singola comunicata fuori dal check-in, usa `save_body_weight_entry(...)`, con timestamp, origine e contesto. Imposta `context.standardized=true` e `context.include_in_average=true` solo per pesate confrontabili (preferibilmente al mattino, dopo il bagno e prima di mangiare/bere); dopo colazione, dopo allenamento o in condizioni diverse usa `include_in_average=false`. La misura resta nello storico ma non altera la media mobile.
+7. Verifica il risultato restituito dalla funzione. Dopo che l'utente ha completato il questionario, non chiedere una seconda approvazione per la registrazione.
+8. Non cambiare i target calorici o macro senza approvazione esplicita.
 
-## Creazione scheda
-Trigger: "Scheda allenamento".
-1. Leggere una sola volta `public.get_training_context(user_id)`.
-2. Usare gruppi muscolari degli ultimi 7 giorni per le combinazioni e recupero; usare gli ultimi 42 giorni per carichi, ripetizioni, RIR e progressioni. Considerare solo serie effettivamente completate.
-3. Escludere dalle raccomandazioni sedute anomale o non attendibili segnalate da `data_quality_flags`; non cancellare i record.
-4. Chiedere il tempo disponibile solo se non è già noto.
-5. Proporre 2–3 combinazioni sensate; dopo la scelta, generare esercizi, serie, carichi di riferimento, ripetizioni, RIR target, recuperi e note.
-6. Richiedere approvazione esplicita prima dell'inserimento nella coda.
-
-## Inserimento scheda approvata
-Dopo l'approvazione, chiamare una sola volta `public.enqueue_workout_plan(user_id, source_id, plan_data)`.
-- Usare un `source_id` univoco e stabile per quella scheda.
-- La funzione è idempotente: non crea una seconda scheda se lo stesso source_id è già presente e non resetta lo stato di una scheda esistente.
-- Non inserire o riattivare automaticamente duplicati già presenti in coda.
-
-
-Il campo `plan_data` deve rispettare il formato già consumato dall'app:
-```json
-{
-  "schema": "fitness-assistant-response",
-  "version": 1,
-  "type": "workout_plan",
-  "plan": {
-    "title": "Titolo",
-    "focus": "Focus muscolare",
-    "duration_minutes": 45,
-    "warmup_minutes": 5,
-    "warmup_notes": "Riscaldamento",
-    "selection_mode": "manual",
-    "requested_groups": ["Schiena", "Bicipiti"],
-    "reasoning_summary": "Motivazione sintetica",
-    "exercises": [
-      {
-        "name": "Pulley basso",
-        "muscle_group": "Schiena",
-        "planned_sets": 3,
-        "rep_range": "8-12",
-        "target_rir": "1-2",
-        "rest_seconds": 120,
-        "previous_reference": "Riferimento storico",
-        "coaching_note": "Indicazione pratica"
-      }
-    ]
-  }
-}
-```
+## Comando: «Scheda allenamento»
+1. Chiama una sola volta `get_training_context(p_user_id)`. Restituisce gruppi muscolari degli ultimi 7 giorni, ultime prestazioni degli esercizi negli ultimi 42 giorni, fino a tre sessioni per movimento, qualità dei dati, media peso a 7 giorni e riepiloghi nutrizionali a 14 giorni.
+2. Usa soltanto serie effettivamente registrate. Escludi le sessioni inferiori a due minuti dalle decisioni su gruppi e progressione. Considera gli altri indicatori `data_quality_flags` e segnala i dati poco affidabili senza cancellarli.
+3. Chiedi il tempo disponibile solo quando non è già noto.
+4. Proponi 2–3 combinazioni pertinenti sulla base della distribuzione muscolare recente e del recupero. Dopo la scelta, prepara esercizi, serie, carichi storici, ripetizioni, RIR, recuperi e note.
+5. Mostra la scheda completa e attendi sempre l'approvazione esplicita.
+6. Dopo l'approvazione chiama `enqueue_workout_plan(p_user_id, p_source_id, p_plan_data)` una sola volta. Usa il formato `fitness-assistant-response`, versione 1, tipo `workout_plan`, con titolo, focus, durata, riscaldamento e array di esercizi.
+7. La funzione è idempotente, serializza le richieste concorrenti e blocca un nuovo piano quando esiste già una scheda aperta. Se restituisce `blocked_by_open_plan=true`, non tentare un nuovo inserimento: segnala la scheda già aperta. Se restituisce `already_existed=true`, non creare un duplicato.
+8. Verifica ID e stato restituiti. L'app continua a ricevere la scheda tramite il polling già esistente di `workout_plans`.
 
 ## Diario alimentare
-- Calcolare per ogni pasto kcal e P/C/G; usare range quando pesi o ingredienti sono incerti.
-- A fine giornata salvare i pasti e il riepilogo in Supabase.
-- Mantenere separati pasti pianificati e pasti effettivamente consumati.
+- Calcola kcal e P/C/G per ogni pasto; usa intervalli quando quantità o ingredienti sono incerti.
+- Registra pasti, ingredienti e riepilogo giornaliero solo dopo la conferma dell'utente sul diario della giornata.
+- Distingui pasti programmati da pasti effettivamente consumati.
+- Mantieni i target presenti nel profilo finché l'utente non approva un cambiamento.
 
-## Backup
-- Versione 4 include profilo, check-in, misurazioni e foto progressi oltre ai dati allenamento/nutrizione precedenti.
-- Mantenere compatibilità di importazione con i backup v3 e con i vecchi backup MyFit.
-- I backup di intervallo includono i dati globali del profilo e i check-in del periodo selezionato; il backup completo è quello da usare per la migrazione integrale.
+## Backup e continuità
+- Formato: `fitness-diary-backup`, versione 4; mantenere importazione compatibile con v3 e con i vecchi backup MyFit.
+- Il backup comprende allenamenti, serie, pasti, ingredienti, alimenti, ricette, foto, riepiloghi, profilo, check-in, misurazioni, foto progressi, registro pesate e `continuity_data`.
+- Le immagini vengono incorporate nel JSON per non dipendere dai percorsi Storage del vecchio account.
+- In ripristino, rimappa gli ID dei check-in prima di ripristinare misure e foto.
+- Non riattivare automaticamente schede vecchie o sessioni storiche dalla coda.

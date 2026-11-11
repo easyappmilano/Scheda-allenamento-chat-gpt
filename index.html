@@ -1305,16 +1305,25 @@ async function collectArchive(scope,date,kind){
  if(kind==="app")return common;
  throw new Error("Tipo di archivio non riconosciuto.");
 }
+const backupKindLabels={all:"completo",training:"allenamenti",nutrition:"alimentazione",app:"app"};
+$("backupKind").onchange=function(){
+ $("downloadBackup").textContent="Scarica JSON "+(backupKindLabels[this.value]||"completo");
+};
 $("downloadBackup").onclick=async function(){
- const button=this;button.disabled=true;button.textContent="Preparo backup…";
- const scope=$("backupScope").value,date=$("backupDate").value||localDateString();
+ const button=this;button.disabled=true;button.textContent="Preparo JSON…";
+ const scope=$("backupScope").value,kind=$("backupKind").value,date=$("backupDate").value||localDateString();
  try{
-  const data=await collectArchive(scope,date);
-  const suffix=scope==="all"?"completo":(data.period.from+"_"+data.period.to);
-  downloadJsonFile("tracciamento-"+suffix+".json",data);
-  $("backupStatus").textContent="Backup scaricato: "+data.workouts.length+" allenamenti, "+data.nutrition_meals.length+" pasti, "+data.nutrition_foods.length+" alimenti, "+(data.nutrition_recipes||[]).length+" ricette, "+(data.fitness_checkins||[]).length+" aggiornamenti fisici e "+(data.fitness_progress_photos||[]).length+" foto progressi e "+(data.fitness_weight_entries||[]).length+" pesate.";
- }catch(e){$("backupStatus").textContent="Backup non riuscito: "+e.message+". Verifica di aver eseguito lo script SQL per Alimentazione e di aver effettuato l'accesso.";}
- finally{button.disabled=false;button.textContent="Scarica backup JSON";}
+  const data=await collectArchive(scope,date,kind);
+  const periodSuffix=scope==="all"?"totale":(data.period.from+"_"+data.period.to);
+  const filename="tracciamento-"+backupKindLabels[kind]+"-"+periodSuffix+".json";
+  downloadJsonFile(filename,data);
+  const counts=[];
+  if(kind==="all"||kind==="training")counts.push((data.workouts||[]).length+" allenamenti");
+  if(kind==="all"||kind==="nutrition")counts.push((data.nutrition_meals||[]).length+" pasti");
+  counts.push((data.continuity_records||[]).length+" elementi di continuità");
+  $("backupStatus").textContent="JSON "+backupKindLabels[kind]+" scaricato: "+counts.join(", ")+". Regole e contesto inclusi.";
+ }catch(e){$("backupStatus").textContent="Esportazione non riuscita: "+e.message+". Verifica l'accesso e l'archivio di continuità.";}
+ finally{button.disabled=false;button.textContent="Scarica JSON "+(backupKindLabels[kind]||"completo");}
 };
 $("backupDate").value=localDateString();
 let pendingFile=null;
@@ -1326,7 +1335,10 @@ $("jsonFileInput").onchange=async function(event){
   let label="Formato non riconosciuto";
   if(type==="workout_plan")label="Scheda allenamento: "+((pendingFile.plan||pendingFile).title||"Scheda ChatGPT");
   else if(type==="nutrition_plan")label="Piano alimentare: "+((pendingFile.meals||[]).length)+" pasti";
-  else if(type==="fitness_diary_backup"||pendingFile.schema===BACKUP_SCHEMA)label="Backup: "+((pendingFile.workouts||[]).length)+" allenamenti e "+((pendingFile.nutrition_meals||pendingFile.meals||[]).length)+" pasti";
+  else if(type==="fitness_diary_backup"||pendingFile.schema===BACKUP_SCHEMA){
+   const kindLabels={all:"Completo",training:"Allenamenti",nutrition:"Alimentazione",app:"App e continuità"};
+   label="JSON "+(kindLabels[pendingFile.export_kind]||"Completo")+": "+((pendingFile.workouts||[]).length)+" allenamenti, "+((pendingFile.nutrition_meals||pendingFile.meals||[]).length)+" pasti e "+((pendingFile.continuity_records||[]).length)+" elementi di continuità";
+  }
   else if(pendingFile.state&&Array.isArray(pendingFile.state.workouts))label="Backup MyFit precedente";
   $("jsonPreview").textContent=label+" · "+file.name;
   $("jsonPreview").classList.remove("hidden");
@@ -1487,6 +1499,17 @@ async function importBackup(data){
     archive_source:"backup_restore"
    },{onConflict:"user_id,archive_key"});
    if(archivedPlan.error)throw archivedPlan.error;
+  }
+
+  for(const record of (data.continuity_records||[])){
+   if(!record.record_key||!["training","nutrition","app","rules","general"].includes(record.domain))continue;
+   const savedRecord=await supabaseClient.from("fitness_continuity_records").upsert({
+    user_id:currentUser.id,record_key:String(record.record_key),domain:record.domain,
+    record_type:record.record_type||"context",title:record.title||"Contesto importato",
+    payload:record.payload||{},recorded_at:record.recorded_at||new Date().toISOString(),
+    source:"backup_restore",updated_at:new Date().toISOString()
+   },{onConflict:"user_id,record_key"});
+   if(savedRecord.error)throw savedRecord.error;
   }
 
   for(const weight of (data.fitness_weight_entries||[])){

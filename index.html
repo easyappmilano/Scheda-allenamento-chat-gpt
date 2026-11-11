@@ -1319,14 +1319,24 @@ async function collectArchive(scope,date,kind){
  const relevantRecords=kind==="all"?continuityRecords:continuityRecords.filter(function(r){
   return r.domain==="rules"||r.domain===kind;
  });
+ const scopedContinuity={
+  generated_at:continuityBase.generated_at,
+  assistant_workflow_version:continuityBase.assistant_workflow_version,
+  commands:continuityBase.commands,
+  operating_rules:rules.map(function(r){return {record_key:r.record_key,title:r.title,payload:r.payload};}),
+  context_domains:kind==="all"?["training","nutrition","app","rules"]:[kind,"rules"],
+  archive_period:continuityBase.archive_period,
+  continuity_record_count:relevantRecords.length
+ };
+ if(kind==="all"||kind==="training"){
+  scopedContinuity.profile=profileResult.data||null;
+  scopedContinuity.training_context=trainingContext;
+  scopedContinuity.latest_checkin=fitnessCheckins[0]||null;
+ }
  const common={
   schema:BACKUP_SCHEMA,version:BACKUP_VERSION,type:"fitness_diary_backup",export_kind:kind,
   exported_at:fullBackup.exported_at,period:fullBackup.period,
-  continuity_records:relevantRecords,
-  continuity_data:Object.assign({},continuityBase,{
-   operating_rules:rules.map(function(r){return {record_key:r.record_key,title:r.title,payload:r.payload};}),
-   context_domains:kind==="all"?["training","nutrition","app","rules"]:[kind,"rules"]
-  })
+  continuity_records:relevantRecords,continuity_data:scopedContinuity
  };
  if(kind==="all")return Object.assign({},fullBackup,{continuity_records:relevantRecords});
  if(kind==="training")return Object.assign(common,{

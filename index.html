@@ -46,7 +46,7 @@ body{background:var(--bg);color:var(--ink)}.wrap{padding:16px 13px 106px;max-wid
         </div>
       </div>
       <div class="field"><label for="workoutRequest">Indicazioni aggiuntive (facoltative)</label><textarea id="workoutRequest" rows="2" placeholder="Es. oggi ho più energia, evita esercizi che sovraccaricano la schiena…"></textarea></div>
-      <div class="btnrow" style="margin-top:14px"><button id="showPlans" disabled>Vai a Chiedi a AI</button></div>
+      <div class="btnrow" style="margin-top:14px"><button id="showPlans" disabled>Vai a Chiedi a IA</button></div>
       <p class="note">I 5 minuti di riscaldamento vengono sempre sottratti dal tempo selezionato.</p>
     </div>
   <div class="card weekly-card">
@@ -80,7 +80,7 @@ body{background:var(--bg);color:var(--ink)}.wrap{padding:16px 13px 106px;max-wid
     <section id="stepSummary" class="hidden"><h1>Riepilogo allenamento</h1><p class="muted">Riepilogo dei dati inseriti nella sessione.</p><div class="card" id="summaryContent"></div><p class="note" id="syncStatus">Stato archiviazione Supabase non verificato.</p><div class="btnrow"><button class="ghost hidden" id="retrySync">Riprova sincronizzazione</button><button class="good" id="sendChatGPT">Copia riepilogo per ChatGPT</button><button class="secondary" id="downloadSummary">Scarica riepilogo .txt</button><button id="restart">Nuovo allenamento</button></div><p class="note" id="shareStatus">Il riepilogo viene trasferito tramite condivisione o copia: poi incollalo in questa conversazione per aggiornare lo storico.</p></section>
   </div>
   <section id="stepAI" class="hidden">
-  <h1>Chiedi a AI</h1>
+  <h1>Chiedi a IA</h1>
   <p class="muted">Scrivi o detta la richiesta. L'app prepara un report con lo storico pertinente da inviare in ChatGPT.</p>
   <div class="card">
     <div class="field"><label for="aiAction">Ambito della richiesta</label>
@@ -123,7 +123,7 @@ body{background:var(--bg);color:var(--ink)}.wrap{padding:16px 13px 106px;max-wid
   <div class="card">
     <div class="row between"><h2>Pasti della giornata</h2><button id="refreshFood" class="ghost" type="button">Aggiorna</button></div>
     <div id="foodEntries"><p class="muted small">Accedi per caricare il diario.</p></div>
-    <button id="askFoodAI" class="good full" type="button">Chiedi a AI per un pasto o una ricetta</button>
+    <button id="askFoodAI" class="good full" type="button">Chiedi a IA per un pasto o una ricetta</button>
   </div>
   <div class="card weekly-card">
     <details id="weeklyFoodDetails">
@@ -136,7 +136,7 @@ body{background:var(--bg);color:var(--ink)}.wrap{padding:16px 13px 106px;max-wid
 </div>
 <nav class="bottom-nav" id="bottomNav" aria-label="Navigazione principale">
   <button type="button" data-section="training" id="navTraining" class="active"><span class="nav-icon">▥</span><span>Allenamento</span></button>
-  <button type="button" data-section="ai" id="navAI"><span class="nav-icon">✦</span><span>Chiedi a AI</span></button>
+  <button type="button" data-section="ai" id="navAI"><span class="nav-icon">✦</span><span>Chiedi a IA</span></button>
   <button type="button" data-section="food" id="navFood"><span class="nav-icon">♨</span><span>Alimentazione</span></button>
 </nav>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -454,4 +454,439 @@ $("restart").onclick = function() {
 };
 </script>
 <script></script>
+<script>
+
+const FITNESS_TARGETS={kcal:1900,protein:129,carbs:192,fat:68};
+let pendingAIImport=null;
+let pendingWorkoutParameters=null;
+
+function localISODate(d){
+ const x=d||new Date();
+ return new Date(x.getTime()-x.getTimezoneOffset()*60000).toISOString().slice(0,10);
+}
+function appNavigate(section){
+ const training=section==="training";
+ $("trainingSection").classList.toggle("hidden",!training);
+ $("stepAI").classList.toggle("hidden",section!=="ai");
+ $("stepFood").classList.toggle("hidden",section!=="food");
+ if(training){
+  ["stepTime","stepPlans","stepWorkout","stepSummary"].forEach(function(id){
+   $(id).classList.toggle("hidden",id!=="stepTime");
+  });
+ }
+ document.querySelectorAll(".bottom-nav button").forEach(function(button){
+  button.classList.toggle("active",button.dataset.section===section);
+ });
+ if(section==="food"){loadFoodDay();loadWeeklyFoodSummary();}
+ if(section==="training"){loadWeeklyTrainingSummary();}
+ window.scrollTo({top:0,behavior:"smooth"});
+}
+show=function(id){
+ if(id==="stepAI"){appNavigate("ai");return;}
+ if(id==="stepFood"){appNavigate("food");return;}
+ if(["stepTime","stepPlans","stepWorkout","stepSummary"].includes(id)){
+  $("stepAI").classList.add("hidden");$("stepFood").classList.add("hidden");
+  $("trainingSection").classList.remove("hidden");
+  ["stepTime","stepPlans","stepWorkout","stepSummary"].forEach(function(name){$(name).classList.toggle("hidden",name!==id);});
+  document.querySelectorAll(".bottom-nav button").forEach(function(button){button.classList.toggle("active",button.dataset.section==="training");});
+  window.scrollTo({top:0,behavior:"smooth"});
+ }
+};
+$("navTraining").onclick=function(){appNavigate("training");};
+$("navAI").onclick=function(){appNavigate("ai");};
+$("navFood").onclick=function(){appNavigate("food");};
+$("aiDate").value=localISODate();
+$("foodDate").value=localISODate();
+function safeNumber(v){const n=Number(v);return Number.isFinite(n)?n:0;}
+function collectPages(queryBuilder){
+ return (async function(){
+  let all=[],from=0,step=800;
+  while(true){
+   const result=await queryBuilder(from,from+step-1);
+   if(result.error)throw result.error;
+   const rows=result.data||[];
+   all=all.concat(rows);
+   if(rows.length<step)break;
+   from+=step;
+  }
+  return all;
+ })();
+}
+async function collectAllUserData(){
+ if(!currentUser)throw new Error("Accedi prima di esportare o importare dati.");
+ const uid=currentUser.id;
+ const workouts=await collectPages(function(a,b){return supabaseClient.from("workouts").select("*").eq("user_id",uid).order("finished_at",{ascending:false}).range(a,b);});
+ const exercises=await collectPages(function(a,b){return supabaseClient.from("workout_exercises").select("*").eq("user_id",uid).order("exercise_order").range(a,b);});
+ const sets=await collectPages(function(a,b){return supabaseClient.from("workout_sets").select("*").eq("user_id",uid).order("set_number").range(a,b);});
+ const meals=await collectPages(function(a,b){return supabaseClient.from("nutrition_meals").select("*").eq("user_id",uid).order("meal_date",{ascending:false}).range(a,b);});
+ const entries=await collectPages(function(a,b){return supabaseClient.from("nutrition_entries").select("*").eq("user_id",uid).range(a,b);});
+ const foods=await collectPages(function(a,b){return supabaseClient.from("nutrition_foods").select("*").eq("user_id",uid).order("name").range(a,b);});
+ return {workouts:workouts,workout_exercises:exercises,workout_sets:sets,nutrition_meals:meals,nutrition_entries:entries,nutrition_foods:foods};
+}
+function nestedWorkoutHistory(data){
+ return data.workouts.map(function(w){
+  const children=data.workout_exercises.filter(function(e){return e.workout_id===w.id;}).map(function(e){
+   return {
+    exercise_name:e.exercise_name,muscle_group:e.muscle_group,exercise_order:e.exercise_order,
+    notes:e.notes,removed:e.removed,registered:e.registered,rep_range:e.rep_range,
+    planned_sets:e.planned_sets,rest_seconds:e.rest_seconds,previous_reference:e.previous_reference,
+    coaching_note:e.coaching_note,target_rir:e.target_rir,
+    sets:data.workout_sets.filter(function(s){return s.workout_exercise_id===e.id;}).map(function(s){
+     return {set_number:s.set_number,weight_kg:s.weight_kg,reps:s.reps,rir:s.rir,rest_seconds:s.rest_seconds,completed:s.completed};
+    })
+   };
+  });
+  return {
+   client_session_id:w.client_session_id,started_at:w.started_at,finished_at:w.finished_at,
+   duration_seconds:w.duration_seconds,status:w.status,plan_id:w.plan_id,plan_title:w.plan_title,
+   selected_duration:w.selected_duration,exercises:children
+  };
+ });
+}
+function downloadJson(name,obj){
+ const blob=new Blob([JSON.stringify(obj,null,2)],{type:"application/json;charset=utf-8"});
+ const url=URL.createObjectURL(blob),a=document.createElement("a");
+ a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
+ setTimeout(function(){URL.revokeObjectURL(url);},1200);
+}
+async function prepareAIReport(){
+ if(!currentUser)throw new Error("Accedi prima di preparare un report.");
+ const domain=$("aiAction").value;
+ $("downloadAIReport").disabled=true;
+ $("aiTransferStatus").textContent="Recupero dello storico completo da Supabase…";
+ try{
+  const data=await collectAllUserData();
+  let context;
+  if(domain==="workout"){
+   context={workouts:nestedWorkoutHistory(data)};
+  }else{
+   context={
+    targets:FITNESS_TARGETS,
+    meals:data.nutrition_meals.map(function(m){
+     return Object.assign({},m,{items:data.nutrition_entries.filter(function(e){return e.meal_id===m.id;})});
+    }),
+    saved_foods:data.nutrition_foods
+   };
+  }
+  const request={
+   schema:"fitness-ai-request",version:1,created_at:new Date().toISOString(),
+   task:domain,user_request:$("aiPrompt").value.trim(),date:$("aiDate").value||localISODate(),
+   workout_parameters:domain==="workout"?pendingWorkoutParameters:null,
+   nutrition_targets:domain==="nutrition"?FITNESS_TARGETS:null,context:context,
+   response_format:domain==="workout"?
+    {schema:"fitness-assistant-response",version:1,type:"workout_plan",plan:{title:"",focus:"",duration_minutes:0,warmup_minutes:5,selection_mode:"auto|manual",requested_groups:[],reasoning_summary:"",exercises:[{name:"",muscle_group:"",planned_sets:3,rep_range:"8-12",rest_seconds:90,previous_reference:"",coaching_note:"",target_rir:"1-3"}]}}:
+    {schema:"fitness-assistant-response",version:1,type:"nutrition_plan",date:$("aiDate").value||localISODate(),summary:"",warnings:[],meals:[{meal_type:"Pranzo",title:"",status:"planned|consumed",items:[{food_name:"",category:"",quantity:100,unit:"g",kcal_100g:0,protein_100g:0,carbs_100g:0,fat_100g:0,calories:0,protein_g:0,carbs_g:0,fat_g:0,data_source:"estimated|label|user_provided",source_note:""}]}}
+  };
+  downloadJson("richiesta-"+domain+"-"+request.date+".json",request);
+  const count=domain==="workout"?context.workouts.length:context.meals.length;
+  $("aiTransferStatus").textContent="Report scaricato: "+count+" "+(domain==="workout"?"allenamenti":"pasti")+" presenti nello storico. Allegalo in questa conversazione ChatGPT.";
+ }catch(error){
+  $("aiTransferStatus").textContent="Esportazione non riuscita: "+error.message;
+ }finally{$("downloadAIReport").disabled=false;}
+}
+$("downloadAIReport").onclick=prepareAIReport;
+$("uploadAIResponse").onclick=function(){$("aiResponseFile").click();};
+$("aiResponseFile").onchange=async function(event){
+ const file=event.target.files&&event.target.files[0];
+ if(!file)return;
+ try{
+  pendingAIImport=JSON.parse(await file.text());
+  renderAIImportPreview(pendingAIImport,file.name);
+ }catch(error){$("aiTransferStatus").textContent="File JSON non valido: "+error.message;}
+ finally{event.target.value="";}
+};
+function renderAIImportPreview(data,fileName){
+ const type=data.type||data.kind||"",workouts=data.workouts||[],meals=data.nutrition_meals||data.meals||[];
+ let title="File da importare",description="Formato non riconosciuto.";
+ if(type==="workout_plan"){
+  const p=data.plan||data;title="Nuova scheda: "+(p.title||"Allenamento");
+  description=(p.exercises||[]).length+" esercizi. La scheda sarà caricata nella sezione Allenamento.";
+ }else if(type==="nutrition_plan"){
+  title="Piano alimentare";description=meals.length+" pasti da salvare nel diario.";
+ }else if(type==="fitness_diary_backup"||data.schema==="fitness-diary-backup"){
+  title="Importazione storico personale";
+  description=workouts.length+" allenamenti · "+meals.length+" pasti · backup JSON.";
+ }else{
+  description="Formati supportati: workout_plan, nutrition_plan, fitness_diary_backup.";
+ }
+ $("aiImportPreview").innerHTML="<strong>"+esc(title)+"</strong><p class='small muted'>"+esc(description)+"</p><p class='small muted'>File: "+esc(fileName)+"</p>";
+ $("aiImportPreview").classList.remove("hidden");$("aiImportActions").classList.remove("hidden");
+ $("aiTransferStatus").textContent="File caricato. Verifica la tipologia e premi Importa nell'app.";
+}
+$("discardAIResponse").onclick=function(){
+ pendingAIImport=null;$("aiImportPreview").classList.add("hidden");$("aiImportActions").classList.add("hidden");
+ $("aiTransferStatus").textContent="Importazione annullata.";
+};
+function setWorkoutFromJSON(data){
+ const p=data.plan||data;
+ if(!Array.isArray(p.exercises)||!p.exercises.length)throw new Error("La scheda non contiene esercizi.");
+ activePlan={
+  id:"AI-"+Date.now(),title:p.title||"Allenamento personalizzato",focus:p.focus||"",
+  badge:"Preparata in ChatGPT",desc:p.reasoning_summary||"",aiGenerated:true,
+  selectionMode:p.selection_mode||"manual",requestedGroups:p.requested_groups||[],
+  ex:p.exercises.map(function(x){return [x.name,x.muscle_group,x.planned_sets,x.rep_range,x.rest_seconds,x.previous_reference||"Nessun riferimento registrato",x.coaching_note||"",x.target_rir||"1-3"];})
+ };
+ exercises=activePlan.ex.map(function(e,i){return {
+  id:i,name:e[0],group:e[1],sets:Number(e[2])||1,repRange:e[3],rest:Number(e[4])||90,
+  previous:e[5],coachingNote:e[6],targetRir:e[7],registered:false,removed:false,
+  data:Array.from({length:Number(e[2])||1},function(){return {kg:"",reps:"",rir:""};}),notes:""
+ };});
+ idx=0;workoutSessionId=createSessionId();workoutStartedAt=new Date().toISOString();
+ const total=Number(p.duration_minutes||55)+5;
+ $("duration").value=String(total);
+ $("workoutTitle").textContent="Scheda · "+activePlan.title;
+ $("workoutDuration").textContent="Durata allenante: "+(total-5)+" min · Riscaldamento: 5 min";
+ $("workoutStatus").textContent="IN CORSO";$("workoutStatus").className="tag";
+ renderExercise();show("stepWorkout");saveDraft();
+}
+async function insertNutritionMeals(data){
+ const meals=data.meals||[];
+ if(!meals.length)throw new Error("Il piano non contiene pasti.");
+ for(const meal of meals){
+  const date=data.date||meal.date||localISODate(),status=meal.status==="consumed"?"consumed":"planned";
+  const head=await supabaseClient.from("nutrition_meals").insert({
+   user_id:currentUser.id,meal_date:date,meal_type:meal.meal_type||"Altro",
+   title:meal.title||null,status:status,notes:data.summary||null
+  }).select("id").single();
+  if(head.error)throw head.error;
+  const rows=[];
+  for(const item of (meal.items||[])){
+   const qty=Number(item.quantity||0),factor=qty/100;
+   const k=Number(item.kcal_100g||0),p=Number(item.protein_100g||0),c=Number(item.carbs_100g||0),g=Number(item.fat_100g||0);
+   let foodId=null;
+   const cat=await supabaseClient.from("nutrition_foods").upsert({
+    user_id:currentUser.id,name:String(item.food_name||"Alimento"),category:item.category||null,
+    unit:item.unit||"g",kcal_100g:k,protein_100g:p,carbs_100g:c,fat_100g:g,
+    data_source:item.data_source||"estimated"
+   },{onConflict:"user_id,name"}).select("id").single();
+   if(!cat.error)foodId=cat.data.id;
+   rows.push({
+    meal_id:head.data.id,user_id:currentUser.id,food_id:foodId,
+    entry_date:date,meal_type:meal.meal_type||"Altro",status:status,
+    food_name:item.food_name||"Alimento",category:item.category||null,
+    quantity:qty,unit:item.unit||"g",kcal_100g:k,protein_100g:p,carbs_100g:c,fat_100g:g,
+    calories:Number((k*factor).toFixed(2)),protein_g:Number((p*factor).toFixed(2)),
+    carbs_g:Number((c*factor).toFixed(2)),fat_g:Number((g*factor).toFixed(2)),
+    data_source:["label","user_provided","estimated"].includes(item.data_source)?item.data_source:"estimated",
+    source_note:item.source_note||null
+   });
+  }
+  if(rows.length){const ins=await supabaseClient.from("nutrition_entries").insert(rows);if(ins.error)throw ins.error;}
+ }
+ await loadFoodDay();await loadWeeklyFoodSummary();
+}
+async function importWorkoutBackup(workout){
+ const parent={
+  user_id:currentUser.id,
+  client_session_id:workout.client_session_id||("legacy-"+Date.now()+"-"+Math.random().toString(36).slice(2,8)),
+  started_at:workout.started_at||null,finished_at:workout.finished_at||workout.started_at||new Date().toISOString(),
+  duration_seconds:Number(workout.duration_seconds||0),status:workout.status||"completed",
+  plan_id:workout.plan_id||null,plan_title:workout.plan_title||workout.title||"Allenamento storico",
+  selected_duration:workout.selected_duration||null,ai_generated:!!workout.ai_generated,
+  selection_mode:workout.selection_mode||null,requested_groups:workout.requested_groups||null
+ };
+ const up=await supabaseClient.from("workouts").upsert(parent,{onConflict:"user_id,client_session_id"}).select("id").single();
+ if(up.error)throw up.error;
+ const workoutId=up.data.id;
+ const del=await supabaseClient.from("workout_exercises").delete().eq("workout_id",workoutId);
+ if(del.error)throw del.error;
+ for(let i=0;i<(workout.exercises||[]).length;i++){
+  const e=workout.exercises[i];
+  const ins=await supabaseClient.from("workout_exercises").insert({
+   workout_id:workoutId,user_id:currentUser.id,exercise_name:e.exercise_name||e.name,
+   muscle_group:e.muscle_group||e.group||"Altro",exercise_order:Number(e.exercise_order||i),
+   notes:e.notes||null,removed:!!e.removed,registered:e.registered!==false,
+   rep_range:e.rep_range||null,planned_sets:Number(e.planned_sets||(e.sets||[]).length)||null,
+   rest_seconds:Number(e.rest_seconds||e.rest||0)||null,previous_reference:e.previous_reference||e.previous||null,
+   coaching_note:e.coaching_note||null,target_rir:e.target_rir||null
+  }).select("id").single();
+  if(ins.error)throw ins.error;
+  const sets=e.sets||[];
+  if(sets.length){
+   const rows=sets.map(function(x,j){return {
+    workout_id:workoutId,workout_exercise_id:ins.data.id,user_id:currentUser.id,
+    set_number:Number(x.set_number||j+1),
+    weight_kg:x.weight_kg===""||x.weight_kg==null?null:Number(x.weight_kg),
+    reps:x.reps===""||x.reps==null?null:Number(x.reps),
+    rir:x.rir===""||x.rir==null?null:Number(x.rir),
+    rest_seconds:x.rest_seconds==null?null:Number(x.rest_seconds),
+    completed:x.completed==null?(x.weight_kg!=null||x.reps!=null):!!x.completed
+   };});
+   const sr=await supabaseClient.from("workout_sets").insert(rows);
+   if(sr.error)throw sr.error;
+  }
+ }
+}
+async function importDiaryBackup(data){
+ if(!currentUser)throw new Error("Accedi prima di importare lo storico.");
+ for(const w of (data.workouts||[]))await importWorkoutBackup(w);
+ for(const m of (data.nutrition_meals||data.meals||[])){
+  if(m.items){
+   await insertNutritionMeals({date:m.meal_date||m.date,summary:m.notes||"Importazione storico",meals:[m]});
+  }else{
+   const ins=await supabaseClient.from("nutrition_meals").upsert({
+    id:m.id,user_id:currentUser.id,meal_date:m.meal_date,meal_type:m.meal_type,
+    title:m.title||null,status:m.status||"consumed",notes:m.notes||null
+   },{onConflict:"id"}).select("id").single();
+   if(ins.error)throw ins.error;
+   const items=(data.nutrition_entries||[]).filter(function(e){return e.meal_id===m.id;});
+   if(items.length){
+    const rows=items.map(function(e){return Object.assign({},e,{user_id:currentUser.id});});
+    const er=await supabaseClient.from("nutrition_entries").upsert(rows,{onConflict:"id"});
+    if(er.error)throw er.error;
+   }
+  }
+ }
+ const foods=data.nutrition_foods||[];
+ for(const f of foods){
+  const food=Object.assign({},f,{user_id:currentUser.id});delete food.id;
+  const result=await supabaseClient.from("nutrition_foods").upsert(food,{onConflict:"user_id,name"});
+  if(result.error)throw result.error;
+ }
+ await loadFoodDay();await loadWeeklyFoodSummary();await loadWeeklyTrainingSummary();
+}
+$("applyAIResponse").onclick=async function(){
+ if(!pendingAIImport)return;
+ if(!currentUser){$("aiTransferStatus").textContent="Accedi prima di importare.";return;}
+ const data=pendingAIImport,type=data.type||data.kind||"";
+ $("applyAIResponse").disabled=true;
+ try{
+  if(type==="workout_plan"){
+   setWorkoutFromJSON(data);
+   $("aiTransferStatus").textContent="Scheda importata. Registra le serie e termina l'allenamento per archiviarlo.";
+  }else if(type==="nutrition_plan"){
+   await insertNutritionMeals(data);
+   $("aiTransferStatus").textContent="Pasti salvati nel diario alimentare.";appNavigate("food");
+  }else if(type==="fitness_diary_backup"||data.schema==="fitness-diary-backup"){
+   await importDiaryBackup(data);
+   $("aiTransferStatus").textContent="Storico importato correttamente in Supabase.";
+  }else{
+   throw new Error("Formato non riconosciuto. Usa workout_plan, nutrition_plan o fitness_diary_backup.");
+  }
+  pendingAIImport=null;$("aiImportPreview").classList.add("hidden");$("aiImportActions").classList.add("hidden");
+ }catch(error){$("aiTransferStatus").textContent="Importazione non completata: "+error.message;}
+ finally{$("applyAIResponse").disabled=false;}
+};
+$("askFoodAI").onclick=function(){
+ $("aiAction").value="nutrition";
+ $("aiPrompt").value="Vorrei preparare un pasto. Valuta i macro già consumati e quelli ancora disponibili, poi proponi una ricetta e le quantità.";
+ $("aiDate").value=$("foodDate").value||localISODate();appNavigate("ai");
+};
+const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+$("aiMic").onclick=function(){
+ if(!Recognition){$("aiVoiceStatus").textContent="Dettatura non supportata dal browser. Puoi usare la dettatura del dispositivo o scrivere.";return;}
+ const rec=new Recognition();rec.lang="it-IT";rec.interimResults=false;rec.maxAlternatives=1;
+ $("aiVoiceStatus").textContent="Ascolto…";
+ rec.onresult=function(event){
+  $("aiPrompt").value=($("aiPrompt").value?$("aiPrompt").value+"\n":"")+event.results[0][0].transcript;
+  $("aiVoiceStatus").textContent="Testo riconosciuto. Premi Download per preparare il report.";
+ };
+ rec.onerror=function(event){$("aiVoiceStatus").textContent="Dettatura non riuscita: "+event.error;};
+ rec.start();
+};
+async function loadWeeklyTrainingSummary(){
+ if(!currentUser)return;
+ const d=new Date();d.setDate(d.getDate()-6);
+ const r=await supabaseClient.from("workouts").select("id,finished_at,plan_title")
+  .eq("user_id",currentUser.id).gte("finished_at",localISODate(d)).order("finished_at",{ascending:false});
+ if(r.error){$("weeklyTrainingSummary").textContent="Storico non disponibile: "+r.error.message;return;}
+ const rows=r.data||[];
+ $("weeklyTrainingSummary").textContent=rows.length+" allenamenti negli ultimi 7 giorni"+(rows.length?": "+rows.map(function(x){return (x.plan_title||"Allenamento")+" ("+new Date(x.finished_at).toLocaleDateString("it-IT")+")";}).join(" · "):".");
+}
+async function loadFoodDay(){
+ if(!currentUser)return;
+ const date=$("foodDate").value||localISODate();
+ const m=await supabaseClient.from("nutrition_meals").select("*").eq("user_id",currentUser.id).eq("meal_date",date).order("created_at");
+ if(m.error){$("foodEntries").textContent="Errore: "+m.error.message;return;}
+ const meals=m.data||[],ids=meals.map(function(x){return x.id;});let entries=[];
+ if(ids.length){
+  const e=await supabaseClient.from("nutrition_entries").select("*").eq("user_id",currentUser.id).in("meal_id",ids);
+  if(e.error){$("foodEntries").textContent="Errore: "+e.error.message;return;}entries=e.data||[];
+ }
+ const totals={kcal:0,p:0,c:0,g:0},planned={kcal:0,p:0,c:0,g:0};
+ meals.forEach(function(meal){
+  entries.filter(function(e){return e.meal_id===meal.id;}).forEach(function(e){
+   const t=meal.status==="planned"?planned:totals;
+   t.kcal+=safeNumber(e.calories);t.p+=safeNumber(e.protein_g);t.c+=safeNumber(e.carbs_g);t.g+=safeNumber(e.fat_g);
+  });
+ });
+ function metric(label,value,target,unit){
+  const percent=Math.max(0,Math.min(100,value/target*100));
+  return '<div class="summaryline"><span>'+label+'</span><strong>'+value.toFixed(1)+' / '+target+' '+unit+'</strong></div><div class="progress"><div style="width:'+percent+'%"></div></div>';
+ }
+ $("foodTotals").innerHTML=metric("Calorie",totals.kcal,1900,"kcal")+metric("Proteine",totals.p,129,"g")+metric("Carboidrati",totals.c,192,"g")+metric("Grassi",totals.g,68,"g")+
+  '<p class="small muted">Residuo: '+(1900-totals.kcal).toFixed(0)+' kcal · P '+(129-totals.p).toFixed(1)+' g · C '+(192-totals.c).toFixed(1)+' g · G '+(68-totals.g).toFixed(1)+' g</p>'+
+  '<p class="small muted">Programmato, escluso dai consumati: '+planned.kcal.toFixed(0)+' kcal</p>';
+ if(!meals.length){$("foodEntries").innerHTML='<p class="small muted">Nessun pasto registrato per questa data.</p>';return;}
+ let out="";
+ meals.forEach(function(meal){
+  const items=entries.filter(function(e){return e.meal_id===meal.id;});
+  const total=items.reduce(function(a,e){return a+safeNumber(e.calories);},0);
+  out+='<div class="summaryline"><span><strong>'+esc(meal.meal_type)+' · '+esc(meal.title||"")+'</strong><br><span class="small muted">'+(meal.status==="planned"?"Programmato":"Consumato")+' · '+items.map(function(x){return esc(x.food_name)+" "+safeNumber(x.quantity)+" "+esc(x.unit);}).join(", ")+'</span></span><span style="text-align:right">'+total.toFixed(0)+' kcal<br><button class="danger" data-delete-meal="'+meal.id+'">Elimina</button></span></div>';
+ });
+ $("foodEntries").innerHTML=out;
+ $("foodEntries").querySelectorAll("[data-delete-meal]").forEach(function(btn){
+  btn.onclick=async function(){
+   if(!confirm("Eliminare questo pasto?"))return;
+   const del=await supabaseClient.from("nutrition_meals").delete().eq("id",btn.dataset.deleteMeal).eq("user_id",currentUser.id);
+   if(del.error)alert(del.error.message);else loadFoodDay();
+  };
+ });
+}
+async function loadWeeklyFoodSummary(){
+ if(!currentUser)return;
+ const d=new Date();d.setDate(d.getDate()-6);
+ const from=localISODate(d),to=localISODate();
+ const m=await supabaseClient.from("nutrition_meals").select("id,meal_date,status")
+  .eq("user_id",currentUser.id).gte("meal_date",from).lte("meal_date",to);
+ if(m.error){$("weeklyFoodSummary").textContent="Storico non disponibile: "+m.error.message;return;}
+ const meals=m.data||[],ids=meals.filter(function(x){return x.status==="consumed";}).map(function(x){return x.id;});
+ let entries=[];
+ if(ids.length){
+  const e=await supabaseClient.from("nutrition_entries").select("meal_id,calories,protein_g,carbs_g,fat_g")
+   .eq("user_id",currentUser.id).in("meal_id",ids);
+  if(e.error){$("weeklyFoodSummary").textContent=e.error.message;return;}entries=e.data||[];
+ }
+ const days={};
+ entries.forEach(function(e){
+  const meal=meals.find(function(x){return x.id===e.meal_id;});if(!meal)return;
+  if(!days[meal.meal_date])days[meal.meal_date]={kcal:0,p:0,c:0,g:0};
+  days[meal.meal_date].kcal+=safeNumber(e.calories);days[meal.meal_date].p+=safeNumber(e.protein_g);
+  days[meal.meal_date].c+=safeNumber(e.carbs_g);days[meal.meal_date].g+=safeNumber(e.fat_g);
+ });
+ const vals=Object.values(days);
+ if(!vals.length){$("weeklyFoodSummary").textContent="Nessun pasto consumato registrato negli ultimi 7 giorni.";return;}
+ const avg={kcal:0,p:0,c:0,g:0};vals.forEach(function(x){avg.kcal+=x.kcal;avg.p+=x.p;avg.c+=x.c;avg.g+=x.g;});
+ $("weeklyFoodSummary").textContent="Media su "+vals.length+" giorni registrati: "+(avg.kcal/vals.length).toFixed(0)+" kcal · P "+(avg.p/vals.length).toFixed(1)+" g · C "+(avg.c/vals.length).toFixed(1)+" g · G "+(avg.g/vals.length).toFixed(1)+" g.";
+}
+$("foodDate").onchange=loadFoodDay;
+$("refreshFood").onclick=loadFoodDay;
+$("showPlans").onclick=async function(){
+ if(!currentUser){$("authMessage").textContent="Accedi prima di preparare la richiesta.";$("authCard").scrollIntoView({behavior:"smooth"});return;}
+ const mode=$("workoutMode").value;
+ const groups=Array.from(document.querySelectorAll('input[name="muscleGroup"]:checked')).map(function(x){return x.value;});
+ if(mode==="manual"&&!groups.length){alert("Seleziona almeno un gruppo muscolare.");return;}
+ const time=$("duration").value;
+ if(!time){alert("Seleziona il tempo disponibile.");return;}
+ pendingWorkoutParameters={available_minutes:time==="more"?130:Number(time),warmup_minutes:5,training_minutes:time==="more"?125:Number(time)-5,selection_mode:mode,muscle_groups:mode==="manual"?groups:[]};
+ $("aiAction").value="workout";$("aiDate").value=localISODate();
+ $("aiPrompt").value="Prepara una scheda. Tempo disponibile: "+pendingWorkoutParameters.available_minutes+" minuti, di cui 5 di riscaldamento. Modalità: "+(mode==="auto"?"scegli in base allo storico":"gruppi richiesti: "+groups.join(", "))+". "+$("workoutRequest").value.trim();
+ appNavigate("ai");
+ $("aiTransferStatus").textContent="Richiesta di allenamento pronta. Premi Download per allegare lo storico completo.";
+};
+$("backTime").onclick=function(){appNavigate("training");};
+supabaseClient.auth.onAuthStateChange(function(event,session){
+ if(session&&session.user){
+  setTimeout(function(){loadWeeklyTrainingSummary();loadWeeklyFoodSummary();if(!$("stepFood").classList.contains("hidden"))loadFoodDay();},300);
+ }
+});
+$("loginBtn").addEventListener("click",function(){
+ setTimeout(function(){supabaseClient.auth.getSession().then(function(r){if(r.data&&r.data.session){loadWeeklyTrainingSummary();loadWeeklyFoodSummary();}});},350);
+});
+$("logoutBtn").addEventListener("click",function(){currentUser=null;});
+$("weeklyTrainingSummary").textContent="Accedi per caricare lo storico.";
+$("weeklyFoodSummary").textContent="Accedi per caricare lo storico.";
+appNavigate("training");
+
+</script>
 </body>

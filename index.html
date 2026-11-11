@@ -1251,32 +1251,59 @@ async function collectArchive(scope,date,kind){
   const recipe=recipes.find(function(r){return r.id===m.recipe_id;});
   return Object.assign({},m,{recipe_source_id:recipe?recipe.source_id:null,items:entries.filter(function(e){return e.meal_id===m.id;})});
  });
- return {
-  schema:BACKUP_SCHEMA,version:BACKUP_VERSION,type:"fitness_diary_backup",
+ const continuityBase={
+  generated_at:new Date().toISOString(),
+  assistant_workflow_version:2,
+  commands:{progress_update:"Aggiornamento forma fisica",workout_plan:"Scheda allenamento",nutrition_log:"Diario alimentare"},
+  operating_rules:[
+   "ChatGPT esegue il ragionamento e le domande; l'app non integra modelli AI.",
+   "Prima di inviare una scheda di allenamento a workout_plans, mostra la scheda e attendi approvazione esplicita.",
+   "Per scegliere i gruppi muscolari usa gli ultimi 7 giorni; per carichi e progressione usa gli ultimi 42 giorni.",
+   "Conta come eseguite soltanto le serie effettivamente compilate; segnala i record anomali o incompleti.",
+   "Mantieni i target nutrizionali esistenti finché l'utente non approva un cambiamento.",
+   "Dopo la chiusura di un allenamento non aprire automaticamente la scheda successiva."
+  ],
+  profile:profileResult.data||null,
+  training_context:trainingContext,
+  latest_checkin:fitnessCheckins[0]||null,
+  archive_period:{type:scope,from:from,to:to},
+  continuity_record_count:continuityRecords.length
+ };
+ const fullBackup={
+  schema:BACKUP_SCHEMA,version:BACKUP_VERSION,type:"fitness_diary_backup",export_kind:"all",
   exported_at:new Date().toISOString(),period:{type:scope,from:from,to:to},
   workouts:nestedWorkouts,nutrition_meals:nestedMeals,nutrition_foods:foods,
   nutrition_recipes:recipes,daily_nutrition_summaries:dailySummaries,nutrition_food_photos:backupFoodPhotos,
-   fitness_profile:profileResult.data||null,fitness_checkins:fitnessCheckins,
-   fitness_measurements:fitnessMeasurements,fitness_progress_photos:backupProgressPhotos,
-   fitness_weight_entries:weightEntries,workout_plans:workoutPlans,
-   continuity_data:{
-    generated_at:new Date().toISOString(),
-    assistant_workflow_version:1,
-    commands:{progress_update:"Aggiornamento forma fisica",workout_plan:"Scheda allenamento",nutrition_log:"Diario alimentare"},
-    operating_rules:[
-     "ChatGPT esegue il ragionamento e le domande; l'app non integra modelli AI.",
-     "Quando un aggiornamento forma fisica è completo, registra il nuovo check-in senza una seconda richiesta di approvazione.",
-     "Prima di inviare una scheda di allenamento a workout_plans, mostra la scheda e attendi approvazione esplicita.",
-     "Per scegliere i gruppi muscolari usa gli ultimi 7 giorni; per carichi e progressione usa gli ultimi 42 giorni.",
-     "Conta come eseguite soltanto le serie effettivamente compilate; segnala i record anomali o incompleti.",
-     "Mantieni i target nutrizionali esistenti finché l'utente non approva un cambiamento."
-    ],
-    profile:profileResult.data||null,
-    training_context:trainingContext,
-    latest_checkin:fitnessCheckins[0]||null,
-    archive_period:{type:scope,from:from,to:to}
-   }
+  fitness_profile:profileResult.data||null,fitness_checkins:fitnessCheckins,
+  fitness_measurements:fitnessMeasurements,fitness_progress_photos:backupProgressPhotos,
+  fitness_weight_entries:weightEntries,workout_plans:workoutPlans,
+  continuity_records:continuityRecords,continuity_data:continuityBase
  };
+ const rules=continuityRecords.filter(function(r){return r.domain==="rules";});
+ const relevantRecords=kind==="all"?continuityRecords:continuityRecords.filter(function(r){
+  return r.domain==="rules"||r.domain===kind;
+ });
+ const common={
+  schema:BACKUP_SCHEMA,version:BACKUP_VERSION,type:"fitness_diary_backup",export_kind:kind,
+  exported_at:fullBackup.exported_at,period:fullBackup.period,
+  continuity_records:relevantRecords,
+  continuity_data:Object.assign({},continuityBase,{
+   operating_rules:rules.map(function(r){return {record_key:r.record_key,title:r.title,payload:r.payload};}),
+   context_domains:kind==="all"?["training","nutrition","app","rules"]:[kind,"rules"]
+  })
+ };
+ if(kind==="all")return Object.assign({},fullBackup,{continuity_records:relevantRecords});
+ if(kind==="training")return Object.assign(common,{
+  workouts:nestedWorkouts,workout_plans:workoutPlans,fitness_profile:profileResult.data||null,
+  fitness_checkins:fitnessCheckins,fitness_measurements:fitnessMeasurements,
+  fitness_progress_photos:backupProgressPhotos,fitness_weight_entries:weightEntries
+ });
+ if(kind==="nutrition")return Object.assign(common,{
+  nutrition_meals:nestedMeals,nutrition_foods:foods,nutrition_recipes:recipes,
+  daily_nutrition_summaries:dailySummaries,nutrition_food_photos:backupFoodPhotos
+ });
+ if(kind==="app")return common;
+ throw new Error("Tipo di archivio non riconosciuto.");
 }
 $("downloadBackup").onclick=async function(){
  const button=this;button.disabled=true;button.textContent="Preparo backup…";

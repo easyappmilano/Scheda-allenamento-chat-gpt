@@ -201,3 +201,187 @@ create policy "Users manage own nutrition foods"
   on public.nutrition_foods for all to authenticated
   using ((select auth.uid())=user_id)
   with check ((select auth.uid())=user_id);
+
+
+-- ---------------------------------------------------------------------------
+-- Estensione 2026-11: coda piani ChatGPT, ricette, foto e riepilogo giornaliero
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.workout_plans (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  source_id text not null,
+  plan_data jsonb not null,
+  status text not null default 'pending'
+    check (status in ('pending','in_progress','completed','cancelled')),
+  started_at timestamptz,
+  completed_at timestamptz,
+  workout_id uuid references public.workouts(id) on delete set null,
+  created_at timestamptz not null default now(),
+  unique(user_id,source_id)
+);
+create index if not exists workout_plans_user_status_idx
+  on public.workout_plans(user_id,status,created_at desc);
+
+create table if not exists public.nutrition_recipes (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  source_id text,
+  name text not null,
+  description text,
+  ingredients jsonb not null default '[]'::jsonb,
+  instructions jsonb not null default '[]'::jsonb,
+  servings numeric(8,2),
+  total_kcal numeric(10,2),
+  total_protein_g numeric(10,2),
+  total_carbs_g numeric(10,2),
+  total_fat_g numeric(10,2),
+  photo_path text,
+  created_at timestamptz not null default now()
+);
+create unique index if not exists nutrition_recipes_user_source_uq
+  on public.nutrition_recipes(user_id,source_id);
+create index if not exists nutrition_recipes_user_idx
+  on public.nutrition_recipes(user_id);
+
+create table if not exists public.nutrition_food_photos (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  food_id uuid references public.nutrition_foods(id) on delete cascade,
+  storage_path text not null,
+  image_data text,
+  mime_type text,
+  caption text,
+  created_at timestamptz not null default now()
+);
+create unique index if not exists nutrition_food_photos_user_path_uq
+  on public.nutrition_food_photos(user_id,storage_path);
+create index if not exists nutrition_food_photos_food_idx
+  on public.nutrition_food_photos(food_id);
+
+create table if not exists public.daily_nutrition_summaries (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  summary_date date not null,
+  total_kcal numeric(10,2) not null default 0,
+  total_protein_g numeric(10,2) not null default 0,
+  total_carbs_g numeric(10,2) not null default 0,
+  total_fat_g numeric(10,2) not null default 0,
+  notes text,
+  source_id text,
+  finalized_at timestamptz,
+  created_at timestamptz not null default now(),
+  unique(user_id,summary_date)
+);
+
+alter table public.nutrition_meals
+  add column if not exists recipe_id uuid;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname='nutrition_meals_recipe_id_fkey'
+  ) then
+    alter table public.nutrition_meals
+      add constraint nutrition_meals_recipe_id_fkey
+      foreign key (recipe_id) references public.nutrition_recipes(id) on delete set null;
+  end if;
+end $$;
+
+alter table public.nutrition_food_photos
+  add column if not exists image_data text,
+  add column if not exists mime_type text;
+
+alter table public.workout_plans enable row level security;
+alter table public.nutrition_recipes enable row level security;
+alter table public.nutrition_food_photos enable row level security;
+alter table public.daily_nutrition_summaries enable row level security;
+
+revoke all on public.workout_plans,public.nutrition_recipes,
+  public.nutrition_food_photos,public.daily_nutrition_summaries
+  from anon,authenticated;
+grant select,insert,update,delete on public.workout_plans,public.nutrition_recipes,
+  public.nutrition_food_photos,public.daily_nutrition_summaries to authenticated;
+
+drop policy if exists "Users manage own workout plans" on public.workout_plans;
+create policy "Users manage own workout plans" on public.workout_plans
+ for all to authenticated using ((select auth.uid())=user_id)
+ with check ((select auth.uid())=user_id);
+
+drop policy if exists "Users manage own nutrition recipes" on public.nutrition_recipes;
+create policy "Users manage own nutrition recipes" on public.nutrition_recipes
+ for all to authenticated using ((select auth.uid())=user_id)
+ with check ((select auth.uid())=user_id);
+
+drop policy if exists "Users manage own nutrition food photos" on public.nutrition_food_photos;
+create policy "Users manage own nutrition food photos" on public.nutrition_food_photos
+ for all to authenticated using ((select auth.uid())=user_id)
+ with check ((select auth.uid())=user_id);
+
+drop policy if exists "Users manage own daily nutrition summaries" on public.daily_nutrition_summaries;
+create policy "Users manage own daily nutrition summaries" on public.daily_nutrition_summaries
+ for all to authenticated using ((select auth.uid())=user_id)
+ with check ((select auth.uid())=user_id);
+
+insert into storage.buckets(id,name,public)
+values ('nutrition-food-photos','nutrition-food-photos',false)
+on conflict (id) do nothing;
+
+drop policy if exists "Users read own nutrition food photos" on storage.objects;
+create policy "Users read own nutrition food photos" on storage.objects
+ for select to authenticated
+ using (bucket_id='nutrition-food-photos' and (storage.foldername(name))[1]=(select auth.uid())::text);
+drop policy if exists "Users upload own nutrition food photos" on storage.objects;
+create policy "Users upload own nutrition food photos" on storage.objects
+ for insert to authenticated
+ with check (bucket_id='nutrition-food-photos' and (storage.foldername(name))[1]=(select auth.uid())::text);
+drop policy if exists "Users update own nutrition food photos" on storage.objects;
+create policy "Users update own nutrition food photos" on storage.objects
+ for update to authenticated
+ using (bucket_id='nutrition-food-photos' and (storage.foldername(name))[1]=(select auth.uid())::text)
+ with check (bucket_id='nutrition-food-photos' and (storage.foldername(name))[1]=(select auth.uid())::text);
+drop policy if exists "Users delete own nutrition food photos" on storage.objects;
+create policy "Users delete own nutrition food photos" on storage.objects
+ for delete to authenticated
+ using (bucket_id='nutrition-food-photos' and (storage.foldername(name))[1]=(select auth.uid())::text);
+
+create or replace function public.refresh_daily_nutrition_summary(p_date date)
+returns public.daily_nutrition_summaries
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  v_user uuid := auth.uid();
+  v_result public.daily_nutrition_summaries;
+begin
+  if v_user is null then raise exception 'Authentication required'; end if;
+  insert into public.daily_nutrition_summaries (
+    user_id,summary_date,total_kcal,total_protein_g,total_carbs_g,total_fat_g,finalized_at
+  )
+  select v_user,p_date,
+    coalesce(sum(coalesce(m.total_kcal,e.kcal)),0),
+    coalesce(sum(coalesce(m.total_protein_g,e.protein_g)),0),
+    coalesce(sum(coalesce(m.total_carbs_g,e.carbs_g)),0),
+    coalesce(sum(coalesce(m.total_fat_g,e.fat_g)),0),
+    now()
+  from public.nutrition_meals m
+  left join lateral (
+    select sum(n.calories) kcal,sum(n.protein_g) protein_g,
+      sum(n.carbs_g) carbs_g,sum(n.fat_g) fat_g
+    from public.nutrition_entries n
+    where n.meal_id=m.id and n.user_id=v_user
+  ) e on true
+  where m.user_id=v_user and m.meal_date=p_date and m.status='consumed'
+  on conflict (user_id,summary_date) do update set
+    total_kcal=excluded.total_kcal,
+    total_protein_g=excluded.total_protein_g,
+    total_carbs_g=excluded.total_carbs_g,
+    total_fat_g=excluded.total_fat_g,
+    finalized_at=excluded.finalized_at
+  returning * into v_result;
+  return v_result;
+end;
+$$;
+grant execute on function public.refresh_daily_nutrition_summary(date) to authenticated;

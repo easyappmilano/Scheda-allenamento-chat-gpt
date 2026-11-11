@@ -588,6 +588,7 @@ async function prepareAIReport(){
   }
   const request={
    schema:"fitness-ai-request",version:1,created_at:new Date().toISOString(),
+   assistant_instructions:"Analizza il contesto completo e la richiesta dell’utente. Restituisci un file JSON scaricabile conforme esattamente a response_format, con schema=\"fitness-assistant-response\" e type corretto. Non inventare dati storici o valori da etichetta; marca le stime come estimated e mantieni distinta la pianificazione dal consumo.",
    task:domain,user_request:$("aiPrompt").value.trim(),date:$("aiDate").value||localISODate(),
    workout_parameters:domain==="workout"?pendingWorkoutParameters:null,
    nutrition_targets:domain==="nutrition"?FITNESS_TARGETS:null,context:context,

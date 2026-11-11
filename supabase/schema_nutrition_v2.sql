@@ -64,6 +64,60 @@ create table if not exists public.nutrition_foods (
   unique(user_id, name)
 );
 
+
+-- Compatibilità con la prima versione del diario alimentare, nel caso fosse già stata creata.
+alter table public.nutrition_foods
+  add column if not exists unit text not null default 'g',
+  add column if not exists data_source text not null default 'user_provided';
+
+alter table public.nutrition_entries
+  add column if not exists meal_id uuid,
+  add column if not exists food_id uuid,
+  add column if not exists kcal_100g numeric(10,2) not null default 0,
+  add column if not exists protein_100g numeric(10,2) not null default 0,
+  add column if not exists carbs_100g numeric(10,2) not null default 0,
+  add column if not exists fat_100g numeric(10,2) not null default 0,
+  add column if not exists data_source text not null default 'estimated',
+  add column if not exists source_note text;
+
+-- Se erano già presenti record nel vecchio diario, li raggruppa per giorno e tipo di pasto.
+do $
+declare
+  has_legacy_columns boolean;
+begin
+  select count(*) = 2 into has_legacy_columns
+  from information_schema.columns
+  where table_schema = 'public'
+    and table_name = 'nutrition_entries'
+    and column_name in ('entry_date', 'meal_type');
+
+  if has_legacy_columns then
+    execute $m$
+      insert into public.nutrition_meals (user_id, meal_date, meal_type, status)
+      select distinct e.user_id, e.entry_date, e.meal_type, 'consumed'
+      from public.nutrition_entries e
+      where e.meal_id is null
+        and not exists (
+          select 1 from public.nutrition_meals m
+          where m.user_id = e.user_id
+            and m.meal_date = e.entry_date
+            and m.meal_type = e.meal_type
+        )
+    $m$;
+
+    execute $u$
+      update public.nutrition_entries e
+      set meal_id = m.id
+      from public.nutrition_meals m
+      where e.meal_id is null
+        and m.user_id = e.user_id
+        and m.meal_date = e.entry_date
+        and m.meal_type = e.meal_type
+    $u$;
+  end if;
+end $;
+
+
 do $$
 begin
   if not exists (select 1 from pg_constraint where conname = 'nutrition_entries_food_id_fkey') then

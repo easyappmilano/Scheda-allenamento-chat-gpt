@@ -90,20 +90,3 @@ create policy "Users manage own nutrition entries" on public.nutrition_entries f
 drop policy if exists "Users manage own nutrition foods" on public.nutrition_foods;
 create policy "Users manage own nutrition foods" on public.nutrition_foods for all to authenticated
   using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
-
-create table if not exists public.assistant_usage (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users(id) on delete cascade,
-  action text not null,
-  created_at timestamptz not null default now()
-);
-create index if not exists assistant_usage_user_time_idx on public.assistant_usage(user_id, created_at desc);
-alter table public.assistant_usage enable row level security;
-revoke all on public.assistant_usage from anon, authenticated;
-grant select, insert on public.assistant_usage to authenticated;
-drop policy if exists "Users read own assistant usage" on public.assistant_usage;
-create policy "Users read own assistant usage" on public.assistant_usage for select to authenticated
-  using ((select auth.uid()) = user_id);
-drop policy if exists "Users insert own assistant usage" on public.assistant_usage;
-create policy "Users insert own assistant usage" on public.assistant_usage for insert to authenticated
-  with check ((select auth.uid()) = user_id);

@@ -31,6 +31,12 @@ h1{font-size:25px;line-height:1.15;margin:4px 0 8px}h2{font-size:18px;margin:0 0
 .small-action{padding:7px 10px;font-size:12px}
 @media(max-width:620px){.wrap{padding:12px 10px 105px}.card{padding:14px}.bottom-nav{padding-left:7px;padding-right:7px}}
 </style>
+<style>
+.workout-warmup{padding:11px 13px;margin-bottom:12px;background:var(--panel);border:1px solid var(--line)}
+.workout-warmup strong{display:block;margin-bottom:4px}
+.workout-warmup p{margin:0;color:var(--muted);font-size:13px;line-height:1.4}
+#pendingWorkoutPreview{margin-bottom:12px}
+</style>
 </head>
 <body>
 <div class="wrap">
@@ -48,29 +54,21 @@ h1{font-size:25px;line-height:1.15;margin:4px 0 8px}h2{font-size:18px;margin:0 0
     <p class="note" id="authMessage">Accedi per attivare l'archiviazione online.</p>
   </div>
   
-<div id="legacyPlanner" class="hidden">
-<section id="stepTime">
-    <h1>Quanto tempo hai oggi?</h1>
-    <p class="muted">Analizzo internamente lo storico, il recupero e i gruppi muscolari. Ti mostro tre alternative senza riportare l'elenco delle vecchie sessioni.</p>
-    <div class="card">
-      <div class="field"><label for="duration">Tempo totale a disposizione</label><select id="duration"><option value="">Seleziona il tempo…</option><option value="45">45 minuti</option><option value="55">55 minuti</option><option value="60">1 ora</option><option value="90">1 ora e 30 minuti</option><option value="120">2 ore</option><option value="more">Più di 2 ore</option></select></div>
-      <div class="time-result" id="warmupInfo">Riscaldamento: 5 minuti · Tempo allenante: seleziona la durata</div>
-      <div class="btnrow" style="margin-top:14px"><button id="showPlans" disabled>Analizza e mostra le 3 proposte</button></div>
-      <p class="note">I 5 minuti di riscaldamento vengono sempre sottratti dal tempo selezionato.</p>
-    </div>
-  </section>
-<section id="stepPlans" class="hidden"><h1>Scegli la scheda</h1><p class="muted" id="planIntro"></p><div class="options" id="planCards"></div><div class="btnrow" style="margin-top:14px"><button class="secondary" id="backTime">Modifica tempo</button></div></section>
+<div id="legacyPlanner" class="hidden" aria-hidden="true">
+  <section id="stepTime"><select id="duration"><option value="60" selected>60</option></select><div id="warmupInfo"></div><button id="showPlans" disabled></button></section>
+  <section id="stepPlans"><p id="planIntro"></p><div id="planCards"></div><button id="backTime"></button></section>
 </div>
 <div id="trainingPage" class="app-page">
 <section id="trainingEmpty">
   <h1>Allenamento</h1>
   <div class="card">
     <h2>Nessuna scheda caricata</h2>
-    <p class="muted">La programmazione la prepariamo qui in ChatGPT. Nell'app carichi soltanto il file JSON della scheda e utilizzi questa schermata durante l'allenamento.</p>
-    <button id="goFilesForWorkout" class="good" type="button">Carica la scheda da File JSON</button>
+    <p class="muted">La scheda viene preparata nella nostra chat. Qui importi il file JSON e registri la sessione, esercizio per esercizio.</p>
+    <button id="goFilesForWorkout" class="good" type="button">Importa la scheda da File JSON</button>
   </div>
 </section>
 <section id="stepWorkout" class="hidden">
+    <div id="workoutWarmup" class="card workout-warmup"></div>
     <div class="row between"><div><h1 id="workoutTitle">Scheda selezionata</h1><p class="muted small" id="workoutDuration"></p></div><span class="tag" id="workoutStatus">IN CORSO</span></div>
     <div class="row between"><span class="small muted" id="exerciseCount">Esercizio 1 di 6</span><span class="small muted" id="registeredCount">0 registrati</span></div><div class="status-legend"><span><i class="dot bad"></i> Da registrare</span><span><i class="dot active"></i> In corso</span><span><i class="dot good"></i> Registrato</span></div><div class="progress"><div id="progressBar"></div></div>
     <div class="exercise-card" id="exerciseCard">
@@ -86,7 +84,7 @@ h1{font-size:25px;line-height:1.15;margin:4px 0 8px}h2{font-size:18px;margin:0 0
     </div>
     <div class="foot-actions"><button class="danger" id="finishWorkout">Termina allenamento</button></div>
   </section>
-<section id="stepSummary" class="hidden"><h1>Riepilogo allenamento</h1><p class="muted">Riepilogo dei dati inseriti nella sessione.</p><div class="card" id="summaryContent"></div><p class="note" id="syncStatus">Stato archiviazione Supabase non verificato.</p><div class="btnrow"><button class="ghost hidden" id="retrySync">Riprova sincronizzazione</button><button class="good" id="sendChatGPT">Copia riepilogo per ChatGPT</button><button class="secondary" id="downloadSummary">Scarica riepilogo .txt</button><button id="restart">Nuovo allenamento</button></div><p class="note" id="shareStatus">Il riepilogo viene trasferito tramite condivisione o copia: poi incollalo in questa conversazione per aggiornare lo storico.</p></section>
+<section id="stepSummary" class="hidden"><h1>Riepilogo allenamento</h1><p class="muted">Riepilogo dei dati inseriti nella sessione.</p><div class="card" id="summaryContent"></div><p class="note" id="syncStatus">Stato archiviazione Supabase non verificato.</p><div class="btnrow"><button class="ghost hidden" id="retrySync">Riprova sincronizzazione</button><button class="good" id="sendChatGPT">Copia riepilogo allenamento</button><button class="secondary" id="downloadSummary">Scarica riepilogo .txt</button><button id="restart">Nuovo allenamento</button></div><p class="note" id="shareStatus">Il riepilogo viene trasferito tramite condivisione o copia: poi incollalo in questa conversazione per aggiornare lo storico.</p></section>
 </div>
 <section id="foodPage" class="app-page hidden">
   <h1>Alimentazione</h1>
@@ -333,7 +331,10 @@ async function persistWorkoutToSupabase() {
     status: "completed",
     plan_id: activePlan.id,
     plan_title: activePlan.title,
-    selected_duration: $("duration").value || null
+    selected_duration: activePlan.durationMinutes ? String(activePlan.durationMinutes + (activePlan.warmupMinutes || 5)) : null,
+    ai_generated: activePlan.aiGenerated !== false,
+    selection_mode: activePlan.selectionMode || null,
+    requested_groups: activePlan.requestedGroups || null
   }, { onConflict: "user_id,client_session_id" }).select("id").single();
   if (workoutResult.error) throw workoutResult.error;
   const workoutId = workoutResult.data.id;
@@ -353,7 +354,9 @@ async function persistWorkoutToSupabase() {
     rep_range: exercise.repRange || null,
     planned_sets: Number.isFinite(Number(exercise.sets)) ? Number(exercise.sets) : null,
     rest_seconds: Number.isFinite(Number(exercise.rest)) ? Number(exercise.rest) : null,
-    previous_reference: exercise.previous || null
+    previous_reference: exercise.previous || null,
+    coaching_note: exercise.coachingNote || null,
+    target_rir: exercise.targetRir || null
   }));
   const exerciseIdsByOrder = {};
   if (exerciseRows.length) {
@@ -480,6 +483,8 @@ function showTrainingView(view){
  $("trainingEmpty").classList.toggle("hidden",view!=="empty");
  $("stepWorkout").classList.toggle("hidden",view!=="workout");
  $("stepSummary").classList.toggle("hidden",view!=="summary");
+ const pendingPreview=$("pendingWorkoutPreview");
+ if(pendingPreview)pendingPreview.classList.toggle("hidden",view!=="preview");
  setActiveNav("training");
  window.scrollTo({top:0,behavior:"smooth"});
 }
@@ -545,6 +550,7 @@ function normalizePlanData(input){
   aiGenerated:true,
   durationMinutes:Number(plan.duration_minutes||plan.available_minutes||0),
   warmupMinutes:Number(plan.warmup_minutes||5),
+  warmupNotes:plan.warmup_notes||plan.warmup_instructions||plan.warmupNotes||"Riscaldamento generale e specifico in base alla seduta.",
   ex:exercises.map(function(e){return [e.name,e.group,e.sets,e.repRange,e.rest,e.previous,e.coachingNote,e.targetRir];}),
   normalizedExercises:exercises
  };
@@ -555,6 +561,7 @@ function applyNormalizedWorkout(planObj,asPending){
  idx=0;
  $("workoutTitle").textContent=planObj.title;
  $("workoutDuration").textContent=(planObj.durationMinutes?planObj.durationMinutes+" minuti di lavoro":"Durata indicata nella scheda")+" · Riscaldamento "+planObj.warmupMinutes+" minuti";
+ if($("workoutWarmup"))$("workoutWarmup").innerHTML="<strong>Riscaldamento · "+Number(planObj.warmupMinutes||5)+" min</strong><p>"+esc(planObj.warmupNotes||"Riscaldamento generale e specifico.")+"</p>";
  $("workoutStatus").textContent=asPending?"PRONTA":"IN CORSO";
  $("workoutStatus").className="tag";
  if(asPending){
@@ -586,6 +593,7 @@ function renderPendingWorkoutPreview(){
  preview.innerHTML="<h2>"+esc(activePlan.title)+"</h2>"+
   "<p class='small muted'>"+esc(activePlan.focus||activePlan.desc||"Scheda importata e pronta per l'esecuzione.")+"</p>"+
   "<p class='small muted'>Riscaldamento: "+Number(activePlan.warmupMinutes||5)+" minuti · Esercizi: "+list.length+"</p>"+
+  "<p class='small muted'>"+esc(activePlan.warmupNotes||"Riscaldamento generale e specifico.")+"</p>"+
   "<ol>"+list.map(function(e){return "<li>"+esc(e[0])+" — "+esc(e[2])+" serie · "+esc(e[3])+" · recupero "+esc(e[4])+" s</li>";}).join("")+"</ol>"+
   "<button id='startImportedWorkout' class='good full' type='button'>Inizia allenamento</button>"+
   "<button id='discardImportedWorkout' class='ghost full' type='button' style='margin-top:8px'>Scarta scheda</button>";
@@ -745,7 +753,8 @@ async function importOneWorkout(w){
   started_at:w.started_at||null,finished_at:w.finished_at||w.started_at||new Date().toISOString(),
   duration_seconds:w.duration_seconds==null?null:Number(w.duration_seconds),
   status:w.status||"completed",plan_id:w.plan_id||"imported",plan_title:w.plan_title||w.title||"Allenamento importato",
-  selected_duration:w.selected_duration==null?null:String(w.selected_duration)
+  selected_duration:w.selected_duration==null?null:String(w.selected_duration),
+  ai_generated:!!w.ai_generated,selection_mode:w.selection_mode||null,requested_groups:w.requested_groups||null
  };
  const saved=await supabaseClient.from("workouts").upsert(parent,{onConflict:"user_id,client_session_id"}).select("id").single();
  if(saved.error)throw saved.error;
@@ -759,7 +768,8 @@ async function importOneWorkout(w){
    muscle_group:e.muscle_group||e.group||"Altro",exercise_order:Number(e.exercise_order==null?i:e.exercise_order),
    notes:e.notes||null,removed:!!e.removed,registered:e.registered!==false,
    rep_range:e.rep_range||e.repRange||null,planned_sets:Number(e.planned_sets||(e.sets||[]).length)||null,
-   rest_seconds:Number(e.rest_seconds||e.rest||0)||null,previous_reference:e.previous_reference||e.previous||null
+   rest_seconds:Number(e.rest_seconds||e.rest||0)||null,previous_reference:e.previous_reference||e.previous||null,
+   coaching_note:e.coaching_note||e.coachingNote||null,target_rir:e.target_rir||e.targetRir||null
   }).select("id").single();
   if(ins.error)throw ins.error;
   const rows=(e.sets||[]).map(function(s,j){return {
@@ -796,7 +806,7 @@ async function importOneNutritionMeal(m,index){
  for(let i=0;i<(m.items||[]).length;i++){
   const item=m.items[i],q=safeNum(item.quantity),k=safeNum(item.kcal_100g),p=safeNum(item.protein_100g),c=safeNum(item.carbs_100g),g=safeNum(item.fat_100g);
   let foodId=null;
-  if(item.food_name){
+  if(item.food_name&&!item.aggregate_total){
    const food=await supabaseClient.from("nutrition_foods").upsert({
     user_id:currentUser.id,name:String(item.food_name),category:item.category||null,unit:item.unit||"g",
     kcal_100g:k,protein_100g:p,carbs_100g:c,fat_100g:g,
@@ -1037,8 +1047,10 @@ $("goFilesForFood").onclick=function(){appNavigate("files");};
 function startImportedWorkout(){
  if(!currentUser){$("authMessage").textContent="Accedi prima di iniziare e salvare l'allenamento.";$("authCard").scrollIntoView({behavior:"smooth"});return;}
  try{localStorage.removeItem(PENDING_PLAN_KEY);}catch(e){}
+ const preview=$("pendingWorkoutPreview");if(preview)preview.classList.add("hidden");
  workoutSessionId=createSessionId();workoutStartedAt=new Date().toISOString();storeSessionMeta();
  $("workoutStatus").textContent="IN CORSO";$("workoutStatus").className="tag";
+ if($("workoutWarmup"))$("workoutWarmup").innerHTML="<strong>Riscaldamento · "+Number(activePlan.warmupMinutes||5)+" min</strong><p>"+esc(activePlan.warmupNotes||"Riscaldamento generale e specifico.")+"</p>";
  renderExercise();show("stepWorkout");saveDraft();
 }
 async function loadFoodBackupEntry(){

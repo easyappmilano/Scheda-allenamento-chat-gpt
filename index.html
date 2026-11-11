@@ -483,9 +483,9 @@ function renderWorkoutClock() {
           : "Il conteggio si sospende se l'app va in background o resta inattiva per 10 minuti.";
   }
 }
-function advanceWorkoutClock(now) {
+function advanceWorkoutClock(now, allowHidden) {
   if (workoutClockLastTickAt === null) return;
-  if (!activePlan || !workoutSessionId || workoutManuallyPaused || document.visibilityState !== "visible") {
+  if (!activePlan || !workoutSessionId || workoutManuallyPaused || (!allowHidden && document.visibilityState !== "visible")) {
     workoutClockLastTickAt = null;
     renderWorkoutClock();
     return;
@@ -544,7 +544,7 @@ document.addEventListener("input", handleWorkoutActivity);
 document.addEventListener("change", handleWorkoutActivity);
 document.addEventListener("visibilitychange", function() {
   if (document.visibilityState === "hidden") {
-    advanceWorkoutClock(Date.now());
+    advanceWorkoutClock(Date.now(), true);
     workoutClockLastTickAt = null;
   } else if (activePlan && workoutSessionId && !workoutManuallyPaused) {
     workoutLastActivityAt = Date.now();
@@ -1839,10 +1839,8 @@ if(activePlan&&workoutSessionId){
 supabaseClient.auth.getSession().then(function(r){
  if(r.data&&r.data.session){currentUser=r.data.session.user;loadNextChatGPTWorkout();}
 });
-setInterval(loadNextChatGPTWorkout,6000);
 document.addEventListener("visibilitychange",function(){
  if(document.visibilityState==="hidden")saveDraft();
- else loadNextChatGPTWorkout();
 });
 
 </script>

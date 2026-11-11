@@ -1112,6 +1112,42 @@ async function downloadImageForBackup(bucket,path){
  return blobToDataUrl(result.data);
 }
 
+async function collectContinuityArchive(scope,date){
+ if(!currentUser)throw new Error("Accedi a Supabase prima di esportare.");
+ let from=null,to=null;
+ if(scope==="day"){from=date;to=date;}
+ else if(scope==="week"){
+  const d=new Date(date+"T12:00:00");const weekday=(d.getDay()+6)%7;d.setDate(d.getDate()-weekday);
+  from=localDateString(d);const last=new Date(d);last.setDate(last.getDate()+6);to=localDateString(last);
+ }else if(scope==="month"){
+  const d=new Date(date+"T12:00:00");from=localDateString(new Date(d.getFullYear(),d.getMonth(),1));to=localDateString(new Date(d.getFullYear(),d.getMonth()+1,0));
+ }else if(scope==="year"){
+  const d=new Date(date+"T12:00:00");from=localDateString(new Date(d.getFullYear(),0,1));to=localDateString(new Date(d.getFullYear(),11,31));
+ }
+ const records=await readAllPages(function(a,b){
+  return supabaseClient.from("fitness_continuity_records")
+   .select("record_key,domain,record_type,title,payload,recorded_at,source")
+   .eq("user_id",currentUser.id).order("recorded_at",{ascending:false}).range(a,b);
+ });
+ const filtered=records.filter(function(record){
+  if(!from||!["event","decision","update","log"].includes(record.record_type))return true;
+  const d=String(record.recorded_at||"").slice(0,10);
+  return d>=from&&d<=to;
+ });
+ const base={
+  generated_at:new Date().toISOString(),assistant_workflow_version:2,
+  commands:{progress_update:"Aggiornamento forma fisica",workout_plan:"Scheda allenamento",nutrition_log:"Diario alimentare"},
+  operating_rules:filtered.filter(function(r){return r.domain==="rules";}).map(function(r){return {record_key:r.record_key,title:r.title,payload:r.payload};}),
+  context_domains:["training","nutrition","app","rules"],
+  continuity_record_count:filtered.length,
+  archive_period:{type:scope,from:from,to:to}
+ };
+ return {
+  schema:BACKUP_SCHEMA,version:BACKUP_VERSION,type:"fitness_diary_backup",
+  export_kind:"app",exported_at:new Date().toISOString(),period:{type:scope,from:from,to:to},
+  continuity_records:filtered,continuity_data:base
+ };
+}
 async function collectArchive(scope,date,kind){
  if(!currentUser)throw new Error("Accedi a Supabase prima di esportare.");
  let from=null,to=null;
@@ -1313,7 +1349,7 @@ $("downloadBackup").onclick=async function(){
  const button=this;button.disabled=true;button.textContent="Preparo JSON…";
  const scope=$("backupScope").value,kind=$("backupKind").value,date=$("backupDate").value||localDateString();
  try{
-  const data=await collectArchive(scope,date,kind);
+  const data=kind==="app"?await collectContinuityArchive(scope,date):await collectArchive(scope,date,kind);
   const periodSuffix=scope==="all"?"totale":(data.period.from+"_"+data.period.to);
   const filename="tracciamento-"+backupKindLabels[kind]+"-"+periodSuffix+".json";
   downloadJsonFile(filename,data);

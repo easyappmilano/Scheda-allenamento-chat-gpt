@@ -682,17 +682,13 @@ async function collectArchive(scope,date){
  let entries=[];
  if(mealIds.length)entries=await readAllPages(function(a,b){return supabaseClient.from("nutrition_entries").select("*").eq("user_id",uid).in("meal_id",mealIds).range(a,b);});
  const foods=await readAllPages(function(a,b){return supabaseClient.from("nutrition_foods").select("*").eq("user_id",uid).order("name").range(a,b);});
- const referencedRecipeIds=[...new Set(meals.map(function(m){return m.recipe_id;}).filter(Boolean))];
- let recipes=[];
- if(referencedRecipeIds.length)recipes=await readAllPages(function(a,b){return supabaseClient.from("nutrition_recipes").select("*").eq("user_id",uid).in("id",referencedRecipeIds).range(a,b);});
+ const recipes=await readAllPages(function(a,b){return supabaseClient.from("nutrition_recipes").select("*").eq("user_id",uid).order("name").range(a,b);});
  let dailySummaries=await readAllPages(function(a,b){
   let q=supabaseClient.from("daily_nutrition_summaries").select("*").eq("user_id",uid).order("summary_date",{ascending:false});
   if(from)q=q.gte("summary_date",from).lte("summary_date",to);
   return q.range(a,b);
  });
- const foodIds=[...new Set(entries.map(function(e){return e.food_id;}).filter(Boolean))];
- let foodPhotos=[];
- if(foodIds.length)foodPhotos=await readAllPages(function(a,b){return supabaseClient.from("nutrition_food_photos").select("*").eq("user_id",uid).in("food_id",foodIds).range(a,b);});
+ const foodPhotos=await readAllPages(function(a,b){return supabaseClient.from("nutrition_food_photos").select("*").eq("user_id",uid).range(a,b);});
  const nestedWorkouts=workouts.map(function(w){
   return Object.assign({},w,{
    exercises:exerciseRows.filter(function(e){return e.workout_id===w.id;}).map(function(e){
@@ -720,7 +716,7 @@ $("downloadBackup").onclick=async function(){
   const data=await collectArchive(scope,date);
   const suffix=scope==="all"?"completo":(data.period.from+"_"+data.period.to);
   downloadJsonFile("tracciamento-"+suffix+".json",data);
-  $("backupStatus").textContent="Backup scaricato: "+data.workouts.length+" allenamenti, "+data.nutrition_meals.length+" pasti, "+data.nutrition_foods.length+" alimenti in catalogo.";
+  $("backupStatus").textContent="Backup scaricato: "+data.workouts.length+" allenamenti, "+data.nutrition_meals.length+" pasti, "+data.nutrition_foods.length+" alimenti, "+(data.nutrition_recipes||[]).length+" ricette e "+(data.nutrition_food_photos||[]).length+" foto.";
  }catch(e){$("backupStatus").textContent="Backup non riuscito: "+e.message+". Verifica di aver eseguito lo script SQL per Alimentazione e di aver effettuato l'accesso.";}
  finally{button.disabled=false;button.textContent="Scarica backup JSON";}
 };

@@ -120,18 +120,18 @@ h1{font-size:25px;line-height:1.15;margin:4px 0 8px}h2{font-size:18px;margin:0 0
     </div>
     <div class="field"><label for="backupDate">Data di riferimento</label><input id="backupDate" type="date"></div>
     <button id="downloadBackup" class="good full" type="button">Scarica backup JSON</button>
-    <p id="backupStatus" class="note">Il backup comprende allenamenti, esercizi, serie, pasti, alimenti e valori macro disponibili.</p>
+    <p id="backupStatus" class="note">Il backup include allenamenti, serie, pasti, alimenti, ricette, riepiloghi, profilo, check-in, misurazioni, pesate, foto e dati di continuità.</p>
   </div>
   <div class="card">
     <h2>Ripristina un backup JSON</h2>
-    <p class="small muted">Seleziona un backup JSON precedente per ripristinare lo storico personale, comprese le misurazioni e le fotografie disponibili.</p>
+    <p class="small muted">Ripristina un backup completo o di periodo. Sono inclusi anche profilo, check-in, misurazioni, pesate e fotografie; l'importazione di vecchie schede e piani resta compatibile.</p>
     <div class="field"><label for="jsonFileInput">Seleziona file</label><input id="jsonFileInput" type="file" accept=".json,application/json"></div>
     <div id="jsonPreview" class="hidden"></div>
     <div class="btnrow">
       <button id="applyJsonImport" class="good" type="button" disabled>Ripristina backup</button>
       <button id="cancelJsonImport" class="secondary" type="button" disabled>Annulla</button>
     </div>
-    <p id="jsonStatus" class="note">I file vengono controllati prima dell'importazione. Non sovrascrivo lo storico esistente.</p>
+    <p id="jsonStatus" class="note">I record con lo stesso identificativo sorgente possono essere aggiornati; gli altri dati restano invariati. Conserva sempre un backup prima di un ripristino.</p>
   </div>
 </section>
 </div>

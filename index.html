@@ -3023,10 +3023,23 @@ document.addEventListener("visibilitychange",function(){
     const normalized = baseNormalizePlanData(input);
     normalized.sessionType = String(plan.session_type || plan.sessionType || plan.execution_mode || "standard").toLowerCase();
     normalized.circuit = plan.circuit || {};
+    function positiveInteger(value,fallback){
+      const n=Number(value);
+      return Number.isFinite(n)?Math.max(1,Math.floor(n)):fallback;
+    }
+    function nonnegativeInteger(value,fallback){
+      const n=Number(value);
+      return Number.isFinite(n)?Math.max(0,Math.floor(n)):fallback;
+    }
     normalized.normalizedExercises = normalized.normalizedExercises.map(function(exercise,index){
       const raw = rawExercises[index] || {};
       const scheme = Array.isArray(raw.set_scheme) ? raw.set_scheme : (Array.isArray(raw.setScheme) ? raw.setScheme : []);
-      const count = scheme.length || exercise.data.length;
+      const executionMode = String(raw.execution_mode || raw.executionMode || (normalized.sessionType === "circuit" ? "circuit" : "standard")).toLowerCase();
+      const circuitRounds = positiveInteger(
+        raw.circuit_rounds ?? raw.circuitRounds ?? normalized.circuit.rounds ?? exercise.sets,
+        3
+      );
+      const count = executionMode === "circuit" ? circuitRounds : (scheme.length || exercise.data.length);
       const sourceData = exercise.data || [];
       const data = Array.from({length:count},function(_,setIndex){
         const existing = sourceData[setIndex] || {kg:"",reps:"",rir:""};
@@ -3036,22 +3049,31 @@ document.addEventListener("visibilitychange",function(){
           actualSegments: Array.isArray(existing.actualSegments) ? existing.actualSegments : []
         });
       });
-      const executionMode = String(raw.execution_mode || raw.executionMode || (normalized.sessionType === "circuit" ? "circuit" : "standard")).toLowerCase();
+      const orderValue=Number(raw.circuit_order ?? raw.circuitOrder ?? index+1);
       return Object.assign({},exercise,{
         executionMode: executionMode,
         exerciseType: raw.exercise_type || raw.exerciseType || raw.movement_type || "compound",
         setScheme: scheme,
         circuitId: raw.circuit_id || raw.circuitId || normalized.circuit.id || null,
-        circuitOrder: Number(raw.circuit_order || raw.circuitOrder || index + 1),
-        workDurationSeconds: Math.max(1, Math.floor(Number(raw.work_duration_seconds || raw.workDurationSeconds || normalized.circuit.work_seconds || normalized.circuit.workDurationSeconds || 120))),
-        transitionRestSeconds: Math.max(0, Math.floor(Number(raw.transition_rest_seconds ?? raw.transitionRestSeconds ?? normalized.circuit.transition_rest_seconds ?? 10))),
-        roundRestSeconds: Math.max(0, Math.floor(Number(raw.round_rest_seconds ?? raw.roundRestSeconds ?? normalized.circuit.round_rest_seconds ?? 120))),
-        circuitRounds: Math.max(1, Math.floor(Number(raw.circuit_rounds || raw.circuitRounds || normalized.circuit.rounds || 3))),
+        circuitOrder: Number.isFinite(orderValue)?orderValue:index+1,
+        workDurationSeconds: positiveInteger(
+          raw.work_duration_seconds ?? raw.workDurationSeconds ?? normalized.circuit.work_seconds ?? normalized.circuit.workDurationSeconds,
+          120
+        ),
+        transitionRestSeconds: nonnegativeInteger(
+          raw.transition_rest_seconds ?? raw.transitionRestSeconds ?? normalized.circuit.transition_rest_seconds,
+          10
+        ),
+        roundRestSeconds: nonnegativeInteger(
+          raw.round_rest_seconds ?? raw.roundRestSeconds ?? normalized.circuit.round_rest_seconds,
+          120
+        ),
+        circuitRounds: circuitRounds,
         data: data,
         sets: count
       });
     });
-    if(normalized.sessionType === "circuit"){
+    if(normalized.sessionType === "circuit" || normalized.normalizedExercises.every(function(e){return e.executionMode === "circuit";})){
       normalized.normalizedExercises.sort(function(a,b){return a.circuitOrder-b.circuitOrder;});
     }
     normalized.ex = normalized.normalizedExercises.map(function(e){return [e.name,e.group,e.sets,e.repRange,e.rest,e.previous,e.coachingNote,e.targetRir];});

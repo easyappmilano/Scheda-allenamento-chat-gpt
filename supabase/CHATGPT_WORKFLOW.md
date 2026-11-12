@@ -36,3 +36,19 @@ ChatGPT è l'unico livello di ragionamento e pianificazione. L'app non deve chia
 - In ripristino, rimappa gli ID dei check-in prima di ripristinare misure e foto.
 - Esporta anche la coda `workout_plans` e l'archivio storico `fitness_workout_plan_archive`.
 - Durante un ripristino inserisci le schede storiche solo in `fitness_workout_plan_archive`; non inserirle mai in `workout_plans` e non riattivare schede precedenti.
+
+
+## Aggiornamento 12 novembre 2026 — Proposte compatte e schemi avanzati
+
+- Quando viene richiesta una nuova scheda, eseguire l'analisi di storico, carichi, progressione, volume e recupero senza trascriverla nella risposta.
+- La risposta in chat contiene soltanto almeno tre proposte compatte. Ogni esercizio deve indicare nome, tipologia (multiarticolare, monoarticolare, unilaterale, ecc.), schema delle serie, ripetizioni/tempo, RIR, recupero e carico precedente quando disponibile.
+- Evitare la ripetizione meccanica delle stesse combinazioni; variare, quando appropriato, esercizi e schemi (top set/back-off, drop set, rest-pause, cluster, myo-reps, tempo, isometrie, AMRAP controllato). Le tecniche avanzate non vanno considerate automaticamente superiori alle serie tradizionali: usarle con dose limitata e criterio.
+- In assenza di richiesta esplicita di circuito, non proporre circuiti.
+- Includere nella risposta un'azione per rigenerare almeno tre alternative, restando coerenti con gruppi muscolari pertinenti e recupero.
+- Non accodare una scheda finché l'utente non seleziona una proposta. Dopo la selezione, chiamare una volta `enqueue_workout_plan` con `fitness-assistant-response`, versione 1, tipo `workout_plan`.
+- `plan.session_type`: `standard` o `circuit`. In modalità standard, ogni esercizio può includere `exercise_type`, `execution_mode`, `planned_sets`, `rep_range`, `rest_seconds`, `previous_reference`, `target_rir` e `set_scheme`.
+- Gli elementi di `set_scheme` sono oggetti JSON. Campi supportati dall'interfaccia: `kind` (straight, warmup, top_set, backoff, drop_set, rest_pause, cluster, myo_reps, tempo, isometric, amrap), `label`, `rep_range`, `target_rir`, `tempo_eccentric_seconds`, `pause_seconds`, `concentric_seconds`, `rest_pause_seconds`, `cluster_reps`, `cluster_pause_seconds`, `segments` con `label`, `load_kg`, `reps` o `rep_range`.
+- Per i drop set usare `segments` in ordine decrescente, e l'app consente di registrare carico e ripetizioni reali per ciascun segmento. Rest-pause e cluster espongono la prescrizione, mentre carico/ripetizioni/RIR effettivi restano compilabili.
+- Per un circuito su richiesta: `session_type: "circuit"`, oggetto `circuit` con `rounds`, `work_seconds`, `transition_rest_seconds`, `round_rest_seconds`; esercizi con `execution_mode: "circuit"`, `circuit_id`, `circuit_order`, `planned_sets` pari ai giri, `work_duration_seconds`, `transition_rest_seconds`, `round_rest_seconds`, `circuit_rounds`. Il timer gestisce lavoro per stazione, transizione e recupero a fine giro. Il circuito parte solo quando l'utente avvia il timer.
+- La registrazione salva modalità d'esecuzione, struttura della prescrizione, dati effettivi dei segmenti, tempi e parametri del circuito. I record classici esistenti mantengono i valori predefiniti compatibili.
+- La UI durante l'allenamento mantiene il timer manuale e l'azione esplicita dell'utente; le serie precompilate sono soltanto quelle programmate.

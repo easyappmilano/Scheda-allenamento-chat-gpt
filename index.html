@@ -591,7 +591,7 @@ button:disabled{opacity:.4;transform:none}
  .single-set-head{font-size:10px}
 }
 </style>
-<style id="integrated-workout-clock-style">.workout-clock{margin:10px 0 12px;padding:12px}.workout-clock strong{display:block;font-size:24px;letter-spacing:.04em;color:#fff}.workout-clock .row{align-items:center;gap:12px}.workout-clock button{min-width:132px}@media(max-width:420px){.workout-clock .row{align-items:flex-start}.workout-clock button{min-width:0;padding:8px 10px}}</style>
+
 </head>
 <body>
 <div class="wrap">
@@ -708,14 +708,6 @@ button:disabled{opacity:.4;transform:none}
     <div class="progress"><div id="progressBar"></div></div>
     <p class="muted small hidden" id="workoutDuration"></p>
   </header>
-
-  <div class="card workout-clock">
-    <div class="row between">
-      <div><div class="small muted">Tempo attivo stimato</div><strong id="workoutElapsedDisplay">00:00</strong></div>
-      <button class="ghost" id="workoutPauseToggle" type="button">Metti in pausa</button>
-    </div>
-    <p id="workoutClockStatus" class="note">Il conteggio si sospende se l'app va in background o resta inattiva per 10 minuti. Puoi mettere in pausa manualmente.</p>
-  </div>
 
   <div class="exercise-card sport-exercise" id="exerciseCard">
     <div class="exercise-main-row">

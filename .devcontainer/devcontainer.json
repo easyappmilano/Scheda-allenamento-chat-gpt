@@ -1,0 +1,30 @@
+{
+  "name": "Tracciamento Personale - Preview",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {
+      "version": "latest",
+      "moby": true,
+      "dockerDashComposeVersion": "v2",
+      "enableNonRootDocker": true
+    }
+  },
+  "forwardPorts": [
+    3000,
+    54323
+  ],
+  "portsAttributes": {
+    "3000": {
+      "label": "Tracciamento Personale Preview",
+      "onAutoForward": "openBrowser",
+      "visibility": "private"
+    },
+    "54323": {
+      "label": "Supabase Studio Preview",
+      "visibility": "private"
+    }
+  },
+  "postCreateCommand": "npm install",
+  "postStartCommand": "bash scripts/start-preview.sh",
+  "remoteUser": "node"
+}

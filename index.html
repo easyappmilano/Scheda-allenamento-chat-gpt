@@ -535,6 +535,40 @@ button:disabled{opacity:.4;transform:none}
  .brand-mark-wrap,.brand-mark-svg{width:36px;height:36px;flex-basis:36px}
 }
 </style>
+<style id="exercise-history-and-single-entry-style">
+.exercise-history-panel,.single-exercise-entry{margin:10px 0;padding:12px}
+.exercise-history-panel h2,.single-exercise-entry h2{margin:0 0 9px}
+.exercise-history-panel .field,.single-exercise-entry .field{margin:8px 0}
+.exercise-history-detail{border-top:1px solid var(--line);padding-top:9px;min-height:24px}
+.exercise-history-record{padding:9px 0;border-bottom:1px solid var(--line)}
+.exercise-history-record:last-child{border-bottom:0}
+.exercise-history-record-main{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.exercise-history-record-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.exercise-history-record-meta span{font-size:12px;color:var(--muted)}
+.single-entry-heading p{margin:0 0 7px}
+.single-entry-meta{display:grid;grid-template-columns:minmax(0,1fr) minmax(110px,.55fr);gap:10px}
+.single-entry-meta .field{min-width:0}
+.single-set-heading{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin:8px 0 6px}
+.single-set-head,.single-set-row{display:grid;grid-template-columns:42px minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) 32px;gap:6px;align-items:center}
+.single-set-head{font-size:11px;font-weight:800;color:var(--muted);margin-bottom:5px}
+.single-set-row{margin:5px 0}
+.single-set-row input{width:100%;min-width:0;padding:8px 5px;font-size:13px}
+.single-set-number{font-size:12px;color:var(--muted);font-weight:800;text-align:center}
+.single-set-remove{padding:6px 0;min-width:30px;background:#3a293f;border:1px solid #76537f}
+.single-set-actions{margin:7px 0}
+.single-set-actions button{flex:0 0 auto}
+.single-exercise-entry .full{width:100%}
+#singleExerciseStatus{min-height:16px;margin:8px 0 0}
+#singleExerciseStatus.success{color:#d4a3ff}
+#singleExerciseStatus.error{color:#ff9bad}
+@media(max-width:420px){
+ .exercise-history-panel,.single-exercise-entry{padding:10px}
+ .single-entry-meta{grid-template-columns:minmax(0,1fr) 104px;gap:7px}
+ .single-set-head,.single-set-row{grid-template-columns:34px minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) 28px;gap:4px}
+ .single-set-row input{padding:7px 3px;font-size:12px}
+ .single-set-head{font-size:10px}
+}
+</style>
 </head>
 <body>
 <div class="wrap">
@@ -565,6 +599,60 @@ button:disabled{opacity:.4;transform:none}
   <button id="trainingNextDay" class="calendar-day-btn" type="button" aria-label="Giorno successivo">›</button>
 </div>
 <div id="trainingCalendarResults" class="training-calendar-results" aria-live="polite">Accedi per consultare gli allenamenti salvati nel giorno selezionato.</div>
+
+<section id="exerciseHistoryPanel" class="card exercise-history-panel">
+  <h2>Storico esercizi</h2>
+  <div class="field">
+    <label for="exerciseHistorySelect">Seleziona un esercizio già svolto</label>
+    <select id="exerciseHistorySelect" aria-label="Seleziona un esercizio svolto">
+      <option value="">Accedi per caricare lo storico</option>
+    </select>
+  </div>
+  <div id="exerciseHistoryDetail" class="exercise-history-detail" aria-live="polite">Seleziona un esercizio per vedere le ultime tre serie registrate.</div>
+</section>
+
+<section id="singleExerciseEntry" class="card single-exercise-entry">
+  <div class="single-entry-heading">
+    <h2>Registra esercizio singolo</h2>
+    <p class="small muted">La registrazione sarà salvata nello storico del giorno selezionato nel calendario qui sopra.</p>
+  </div>
+  <div class="field">
+    <label for="singleExerciseName">Nome esercizio</label>
+    <input id="singleExerciseName" type="text" list="singleExerciseOptions" maxlength="120" placeholder="Scrivi o seleziona un esercizio" autocomplete="off">
+    <datalist id="singleExerciseOptions"></datalist>
+  </div>
+  <div class="single-entry-meta">
+    <div class="field">
+      <label for="singleExerciseGroup">Gruppo muscolare</label>
+      <select id="singleExerciseGroup">
+        <option>Petto</option><option>Schiena</option><option>Spalle</option><option>Trapezi</option>
+        <option>Bicipiti</option><option>Tricipiti</option><option>Gambe</option><option>Glutei</option>
+        <option>Addome</option><option selected>Altro</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="singleExerciseRest">Recupero (sec)</label>
+      <input id="singleExerciseRest" type="number" min="0" max="1800" step="5" value="90" inputmode="numeric">
+    </div>
+  </div>
+  <div class="single-set-heading">
+    <strong>Serie svolte</strong>
+    <span class="small muted">Kg · Ripetizioni · RIR</span>
+  </div>
+  <div class="single-set-head" aria-hidden="true">
+    <span>Serie</span><span>Kg</span><span>Rip.</span><span>RIR</span><span></span>
+  </div>
+  <div id="singleExerciseSets" class="single-exercise-sets"></div>
+  <div class="btnrow single-set-actions">
+    <button id="addSingleExerciseSet" class="secondary" type="button">+ Aggiungi serie</button>
+  </div>
+  <div class="field">
+    <label for="singleExerciseNotes">Note (facoltative)</label>
+    <textarea id="singleExerciseNotes" rows="2" maxlength="1000" placeholder="Eventuali note sull'esercizio…"></textarea>
+  </div>
+  <button id="saveSingleExercise" class="good full" type="button">Salva esercizio e serie</button>
+  <p id="singleExerciseStatus" class="small muted" role="status" aria-live="polite"></p>
+</section>
 </div>
 <section id="trainingEmpty">
   <h1>Allenamento</h1>
@@ -1101,6 +1189,7 @@ $("finishWorkout").onclick = async function() {
   showTrainingView("empty");
   showCompletedWorkoutNotice("Allenamento salvato su Supabase. La prossima scheda non verrà aperta automaticamente: premi il pulsante quando vuoi iniziare.");
   loadTrainingCalendarDay();
+  loadExerciseHistoryOptions();
  }catch(error){
   finishingWorkout=false;
   button.disabled=false;button.textContent="Riprova salvataggio";
@@ -1163,6 +1252,7 @@ function appPage(page){
   else if(hasPending)showTrainingView("preview");
   else showTrainingView("empty");
   if(hasPending)renderPendingWorkoutPreview();
+  if(!hasRunning&&!hasPending){loadTrainingCalendarDay();loadExerciseHistoryOptions();}
  }else{
   hideAllMainPages();
   $(page==="food"?"foodPage":"filesPage").classList.remove("hidden");
@@ -2211,6 +2301,327 @@ async function loadTrainingCalendarDay(){
   panel.innerHTML='<span class="small muted">Impossibile caricare il calendario: '+esc(error.message||String(error))+'</span>';
  }
 }
+let exerciseHistoryCache=[];
+let loadingExerciseHistory=false;
+async function loadExerciseHistoryOptions(){
+ const select=$("exerciseHistorySelect");
+ if(!select)return;
+ if(!currentUser){
+  select.innerHTML='<option value="">Accedi per consultare lo storico</option>';
+  $("exerciseHistoryDetail").textContent="Accedi per consultare le ultime serie svolte.";
+  $("singleExerciseOptions").innerHTML="";
+  return;
+ }
+ if(loadingExerciseHistory)return;
+ loadingExerciseHistory=true;
+ const previousValue=select.value;
+ select.disabled=true;
+ select.innerHTML='<option value="">Caricamento esercizi…</option>';
+ try{
+  const workouts=await readAllPages(function(from,to){
+   return supabaseClient.from("workouts").select("id,plan_title,started_at,finished_at")
+    .eq("user_id",currentUser.id).eq("status","completed")
+    .order("finished_at",{ascending:false}).range(from,to);
+  });
+  if(!workouts.length){
+   exerciseHistoryCache=[];
+   select.innerHTML='<option value="">Nessun esercizio registrato</option>';
+   $("exerciseHistoryDetail").textContent="Gli esercizi compariranno qui dopo aver registrato una sessione.";
+   $("singleExerciseOptions").innerHTML="";
+   return;
+  }
+  const workoutMap=new Map(workouts.map(function(w){return [w.id,w];}));
+  const workoutIds=workouts.map(function(w){return w.id;});
+  const rows=await readAllPages(function(from,to){
+   return supabaseClient.from("workout_exercises")
+    .select("id,workout_id,exercise_name,muscle_group,exercise_order,registered,removed")
+    .eq("user_id",currentUser.id).eq("registered",true).eq("removed",false)
+    .in("workout_id",workoutIds).order("exercise_order",{ascending:true}).range(from,to);
+  });
+  exerciseHistoryCache=rows.map(function(e){
+   const w=workoutMap.get(e.workout_id)||{};
+   return Object.assign({},e,{
+    finished_at:w.finished_at||w.started_at||null,
+    plan_title:w.plan_title||"Allenamento"
+   });
+  }).sort(function(a,b){
+   const dateDiff=new Date(b.finished_at||0).getTime()-new Date(a.finished_at||0).getTime();
+   if(dateDiff)return dateDiff;
+   return Number(a.exercise_order||0)-Number(b.exercise_order||0);
+  });
+  const unique=[];
+  const seen=new Set();
+  exerciseHistoryCache.forEach(function(e){
+   const name=String(e.exercise_name||"").trim();
+   const key=name.toLocaleLowerCase("it");
+   if(!name||seen.has(key))return;
+   seen.add(key);
+   unique.push(e);
+  });
+  select.innerHTML='<option value="">Seleziona un esercizio…</option>';
+  const datalist=$("singleExerciseOptions");
+  datalist.innerHTML="";
+  unique.forEach(function(e){
+   const name=String(e.exercise_name||"").trim();
+   const date=e.finished_at?new Date(e.finished_at).toLocaleDateString("it-IT"):"";
+   const group=e.muscle_group?" · "+e.muscle_group:"";
+   const option=document.createElement("option");
+   option.value=name;
+   option.textContent=name+group+(date?" · "+date:"");
+   select.appendChild(option);
+   const dataOption=document.createElement("option");
+   dataOption.value=name;
+   datalist.appendChild(dataOption);
+  });
+  select.disabled=false;
+  const canRestore=unique.some(function(e){return e.exercise_name===previousValue;});
+  select.value=canRestore?previousValue:(unique.length?String(unique[0].exercise_name):"");
+  if(select.value)await loadSelectedExerciseHistory();
+  else $("exerciseHistoryDetail").textContent="Nessun esercizio registrato nello storico.";
+ }catch(error){
+  select.innerHTML='<option value="">Errore nel caricamento</option>';
+  $("exerciseHistoryDetail").textContent="Impossibile caricare lo storico: "+(error.message||String(error));
+ }finally{
+  select.disabled=false;
+  loadingExerciseHistory=false;
+ }
+}
+async function loadSelectedExerciseHistory(){
+ const name=$("exerciseHistorySelect").value;
+ const panel=$("exerciseHistoryDetail");
+ if(!name){panel.textContent="Seleziona un esercizio per vedere le ultime tre serie registrate.";return;}
+ if(!currentUser){panel.textContent="Accedi per consultare le serie registrate.";return;}
+ const matches=exerciseHistoryCache.filter(function(e){return e.exercise_name===name;});
+ if(!matches.length){panel.textContent="Non trovo sessioni registrate per questo esercizio.";return;}
+ panel.innerHTML='<p class="small muted">Caricamento delle ultime tre serie…</p>';
+ try{
+  const ids=matches.map(function(e){return e.id;});
+  const result=await readAllPages(function(from,to){
+   return supabaseClient.from("workout_sets")
+    .select("workout_exercise_id,set_number,weight_kg,reps,rir,rest_seconds,completed")
+    .eq("user_id",currentUser.id).eq("completed",true)
+    .in("workout_exercise_id",ids).range(from,to);
+  });
+  const exerciseById=new Map(matches.map(function(e){return [e.id,e];}));
+  const recent=result.map(function(s){
+   return {set:s,exercise:exerciseById.get(s.workout_exercise_id)};
+  }).filter(function(x){return !!x.exercise;}).sort(function(a,b){
+   const ad=new Date(a.exercise.finished_at||0).getTime();
+   const bd=new Date(b.exercise.finished_at||0).getTime();
+   if(bd!==ad)return bd-ad;
+   const ao=Number(a.exercise.exercise_order||0),bo=Number(b.exercise.exercise_order||0);
+   if(bo!==ao)return bo-ao;
+   return Number(b.set.set_number||0)-Number(a.set.set_number||0);
+  }).slice(0,3);
+  if(!recent.length){
+   panel.innerHTML='<p class="small muted">L’esercizio è presente nello storico, ma non risultano serie completate da mostrare.</p>';
+   return;
+  }
+  const records=recent.map(function(item){
+   const s=item.set,e=item.exercise;
+   const kg=s.weight_kg==null?"Corpo libero / n.d.":String(s.weight_kg)+" kg";
+   const reps=s.reps==null?"—":String(s.reps);
+   const rir=s.rir==null?"—":String(s.rir);
+   const rest=s.rest_seconds==null?"—":String(s.rest_seconds)+" sec";
+   const date=e.finished_at?new Date(e.finished_at).toLocaleDateString("it-IT"):"Data n.d.";
+   return '<div class="exercise-history-record">'+
+    '<div class="exercise-history-record-main"><strong>Serie '+esc(s.set_number)+' · '+esc(kg)+' × '+esc(reps)+' rip.</strong><span class="small muted">'+esc(date)+'</span></div>'+
+    '<div class="exercise-history-record-meta"><span>RIR '+esc(rir)+'</span><span>Recupero '+esc(rest)+'</span><span>'+esc(e.plan_title||"Allenamento")+'</span></div>'+
+    '</div>';
+  }).join("");
+  panel.innerHTML='<p class="small muted">Ultime '+recent.length+' serie completate · '+esc(name)+'</p>'+records;
+ }catch(error){
+  panel.innerHTML='<p class="small muted">Impossibile leggere le serie: '+esc(error.message||String(error))+'</p>';
+ }
+}
+function updateSingleExerciseSetNumbers(){
+ const rows=Array.from($("singleExerciseSets").querySelectorAll(".single-set-row"));
+ rows.forEach(function(row,index){
+  const number=row.querySelector(".single-set-number");
+  if(number)number.textContent=String(index+1);
+  const remove=row.querySelector(".single-set-remove");
+  if(remove)remove.disabled=rows.length===1;
+ });
+}
+function addSingleExerciseSetRow(values){
+ const container=$("singleExerciseSets");
+ if(!container)return;
+ const s=values||{};
+ const row=document.createElement("div");
+ row.className="single-set-row";
+ row.innerHTML=
+  '<span class="single-set-number"></span>'+
+  '<input type="text" inputmode="decimal" data-field="kg" placeholder="Kg" aria-label="Carico in kg" value="'+esc(s.kg||"")+'">'+
+  '<input type="text" inputmode="numeric" data-field="reps" placeholder="Rip." aria-label="Ripetizioni" value="'+esc(s.reps||"")+'">'+
+  '<input type="text" inputmode="decimal" data-field="rir" placeholder="RIR" aria-label="RIR" value="'+esc(s.rir||"")+'">'+
+  '<button type="button" class="single-set-remove" aria-label="Rimuovi serie">−</button>';
+ container.appendChild(row);
+ updateSingleExerciseSetNumbers();
+}
+function resetSingleExerciseForm(){
+ $("singleExerciseName").value="";
+ $("singleExerciseGroup").value="Altro";
+ $("singleExerciseRest").value="90";
+ $("singleExerciseNotes").value="";
+ $("singleExerciseSets").innerHTML="";
+ for(let i=0;i<3;i++)addSingleExerciseSetRow();
+ $("singleExerciseStatus").textContent="";
+ $("singleExerciseStatus").className="small muted";
+}
+$("exerciseHistorySelect").onchange=loadSelectedExerciseHistory;
+$("singleExerciseName").addEventListener("change",function(){
+ const name=this.value.trim();
+ const match=exerciseHistoryCache.find(function(e){return String(e.exercise_name||"").toLocaleLowerCase("it")===name.toLocaleLowerCase("it");});
+ if(match&&Array.from($("singleExerciseGroup").options).some(function(o){return o.value===match.muscle_group;})){
+  $("singleExerciseGroup").value=match.muscle_group;
+ }
+});
+$("singleExerciseSets").addEventListener("click",function(event){
+ const remove=event.target.closest(".single-set-remove");
+ if(!remove)return;
+ const rows=$("singleExerciseSets").querySelectorAll(".single-set-row");
+ if(rows.length<=1)return;
+ remove.closest(".single-set-row").remove();
+ updateSingleExerciseSetNumbers();
+});
+$("addSingleExerciseSet").onclick=function(){addSingleExerciseSetRow();};
+resetSingleExerciseForm();
+let savingSingleExercise=false;
+$("saveSingleExercise").onclick=async function(){
+ if(savingSingleExercise)return;
+ const button=this;
+ const status=$("singleExerciseStatus");
+ if(!currentUser){
+  status.textContent="Accedi prima di registrare un esercizio.";
+  status.className="small error";
+  $("authCard").scrollIntoView({behavior:"smooth"});
+  return;
+ }
+ const name=$("singleExerciseName").value.trim();
+ if(!name){
+  status.textContent="Inserisci il nome dell’esercizio.";
+  status.className="small error";
+  $("singleExerciseName").focus();
+  return;
+ }
+ const group=$("singleExerciseGroup").value||"Altro";
+ const restValue=numericOrNull($("singleExerciseRest").value);
+ if(restValue!==null&&(!Number.isInteger(restValue)||restValue<0||restValue>1800)){
+  status.textContent="Il recupero deve essere un numero intero tra 0 e 1800 secondi.";
+  status.className="small error";
+  return;
+ }
+ const rows=Array.from($("singleExerciseSets").querySelectorAll(".single-set-row"));
+ const sets=[];
+ for(let i=0;i<rows.length;i++){
+  const row=rows[i];
+  const kg=numericOrNull(row.querySelector('[data-field="kg"]').value);
+  const reps=numericOrNull(row.querySelector('[data-field="reps"]').value);
+  const rir=numericOrNull(row.querySelector('[data-field="rir"]').value);
+  if(kg===null&&reps===null&&rir===null)continue;
+  if(reps===null||!Number.isInteger(reps)||reps<1){
+   status.textContent="Completa le ripetizioni della serie "+(i+1)+".";
+   status.className="small error";
+   row.querySelector('[data-field="reps"]').focus();
+   return;
+  }
+  if(kg!==null&&kg<0){
+   status.textContent="Il carico non può essere negativo.";
+   status.className="small error";
+   return;
+  }
+  if(rir!==null&&rir<0){
+   status.textContent="Il RIR non può essere negativo.";
+   status.className="small error";
+   return;
+  }
+  sets.push({weight_kg:kg,reps:reps,rir:rir,rest_seconds:restValue===null?null:Math.round(restValue)});
+ }
+ if(!sets.length){
+  status.textContent="Inserisci almeno una serie con le ripetizioni svolte.";
+  status.className="small error";
+  return;
+ }
+ const selectedDay=$("trainingDate").value||localDateString();
+ const clock=new Date().toTimeString().slice(0,8);
+ const recordedAt=new Date(selectedDay+"T"+clock).toISOString();
+ const notes=$("singleExerciseNotes").value.trim();
+ savingSingleExercise=true;
+ button.disabled=true;
+ button.textContent="Salvataggio…";
+ status.textContent="Registrazione in corso…";
+ status.className="small muted";
+ let workoutId=null,exerciseId=null;
+ try{
+  const workoutInsert=await supabaseClient.from("workouts").insert({
+   user_id:currentUser.id,
+   client_session_id:createSessionId(),
+   started_at:recordedAt,
+   finished_at:recordedAt,
+   duration_seconds:null,
+   status:"completed",
+   plan_id:null,
+   plan_title:"Esercizio singolo · "+name,
+   selected_duration:null,
+   ai_generated:false,
+   selection_mode:"manual_single_exercise",
+   requested_groups:group?[group]:null
+  }).select("id").single();
+  if(workoutInsert.error)throw workoutInsert.error;
+  workoutId=workoutInsert.data.id;
+  const exerciseInsert=await supabaseClient.from("workout_exercises").insert({
+   workout_id:workoutId,
+   user_id:currentUser.id,
+   exercise_name:name,
+   muscle_group:group,
+   exercise_order:0,
+   notes:notes||null,
+   removed:false,
+   registered:true,
+   rep_range:null,
+   planned_sets:sets.length,
+   rest_seconds:restValue===null?null:Math.round(restValue),
+   previous_reference:null,
+   coaching_note:null,
+   target_rir:null
+  }).select("id").single();
+  if(exerciseInsert.error)throw exerciseInsert.error;
+  exerciseId=exerciseInsert.data.id;
+  const setRows=sets.map(function(s,index){
+   return {
+    workout_id:workoutId,
+    workout_exercise_id:exerciseId,
+    user_id:currentUser.id,
+    set_number:index+1,
+    weight_kg:s.weight_kg,
+    reps:s.reps,
+    rir:s.rir,
+    rest_seconds:s.rest_seconds,
+    completed:true
+   };
+  });
+  const setInsert=await supabaseClient.from("workout_sets").insert(setRows);
+  if(setInsert.error)throw setInsert.error;
+  status.textContent="Esercizio e "+sets.length+" serie salvati nello storico del "+new Date(selectedDay+"T12:00:00").toLocaleDateString("it-IT")+".";
+  status.className="small success";
+  resetSingleExerciseForm();
+  await Promise.all([loadExerciseHistoryOptions(),loadTrainingCalendarDay()]);
+ }catch(error){
+  if(workoutId){
+   try{await supabaseClient.from("workout_sets").delete().eq("workout_id",workoutId).eq("user_id",currentUser.id);}catch(e){}
+   if(exerciseId){
+    try{await supabaseClient.from("workout_exercises").delete().eq("id",exerciseId).eq("user_id",currentUser.id);}catch(e){}
+   }
+   try{await supabaseClient.from("workouts").delete().eq("id",workoutId).eq("user_id",currentUser.id);}catch(e){}
+  }
+  status.textContent="Salvataggio non completato: "+(error.message||String(error));
+  status.className="small error";
+ }finally{
+  savingSingleExercise=false;
+  button.disabled=false;
+  button.textContent="Salva esercizio e serie";
+ }
+};
 function shiftCalendarDay(inputId,delta,refresh){
  const input=$(inputId);
  const date=new Date((input.value||localDateString())+"T12:00:00");
@@ -2320,11 +2731,11 @@ async function loadFoodBackupEntry(){
 }
 supabaseClient.auth.onAuthStateChange(function(_event,session){
  if(session&&session.user){
-  setTimeout(function(){loadWeeklyFoodSummary();loadTrainingCalendarDay();if(!$("foodPage").classList.contains("hidden"))loadFoodDay();},250);
+  setTimeout(function(){loadWeeklyFoodSummary();loadTrainingCalendarDay();loadExerciseHistoryOptions();if(!$("foodPage").classList.contains("hidden"))loadFoodDay();},250);
  }
 });
 $("loginBtn").addEventListener("click",function(){
- setTimeout(function(){supabaseClient.auth.getSession().then(function(r){if(r.data&&r.data.session){loadWeeklyFoodSummary();loadFoodDay();loadTrainingCalendarDay();}});},400);
+ setTimeout(function(){supabaseClient.auth.getSession().then(function(r){if(r.data&&r.data.session){loadWeeklyFoodSummary();loadFoodDay();loadTrainingCalendarDay();loadExerciseHistoryOptions();}});},400);
 });
 $("restart").addEventListener("click",function(){
  try{localStorage.removeItem(PENDING_PLAN_KEY);}catch(e){}
@@ -2344,7 +2755,7 @@ if(activePlan&&workoutSessionId){
  }else showTrainingView("empty");
 }
 supabaseClient.auth.getSession().then(function(r){
- if(r.data&&r.data.session){currentUser=r.data.session.user;loadNextChatGPTWorkout();loadTrainingCalendarDay();}
+ if(r.data&&r.data.session){currentUser=r.data.session.user;loadNextChatGPTWorkout();loadTrainingCalendarDay();loadExerciseHistoryOptions();}
 });
 document.addEventListener("visibilitychange",function(){
  if(document.visibilityState==="hidden")saveDraft();

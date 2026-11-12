@@ -15,6 +15,7 @@ npx supabase migration up --local
 echo "[preview] Reading local publishable key..."
 STATUS_ENV="$(npx supabase status -o env)"
 eval "$STATUS_ENV"
+export ANON_KEY
 : "${ANON_KEY:?Supabase CLI did not return ANON_KEY}"
 
 node --input-type=commonjs <<'NODE'

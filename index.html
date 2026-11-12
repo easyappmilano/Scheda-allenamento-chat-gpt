@@ -3094,12 +3094,25 @@ document.addEventListener("visibilitychange",function(){
     let runtime=window.__tracciamentoCircuitRuntime;
     if(!runtime || runtime.planId !== activePlan.id){
       runtime={planId:activePlan.id,phase:"work",round:1,rounds:Number(activePlan.circuit.rounds || activeExercises()[0]?.circuitRounds || 3),currentIndex:idx,completed:false};
-    }else if(runtime.currentIndex !== idx && !window.__tracciamentoCircuitAdvance){
+    }else if(runtime.currentIndex !== idx && !window.__tracciamentoCircuitAdvance && !runtime.completed){
       runtime.phase="work";runtime.round=1;runtime.completed=false;runtime.currentIndex=idx;
     }
     runtime.currentIndex=idx;
     window.__tracciamentoCircuitRuntime=runtime;
     return runtime;
+  }
+  function updateCircuitControls(runtime,list){
+    if(!runtime)return;
+    const locked=!!(runtime.started&&!runtime.completed);
+    const completed=!!runtime.completed;
+    const nav=$("navigationSelect");if(nav)nav.disabled=locked;
+    const prev=$("prevExercise");if(prev)prev.disabled=locked||idx===0;
+    const next=$("nextExercise");if(next)next.disabled=locked||idx===list.length-1;
+    const select=$("exerciseSelect");if(select)select.disabled=locked;
+    const remove=$("deleteExercise");if(remove)remove.disabled=locked;
+    const register=$("registerExercise");if(register)register.disabled=!completed;
+    const add=$("addSet");if(add)add.disabled=true;
+    $("setsContainer").querySelectorAll(".remove-set").forEach(function(button){button.disabled=true;});
   }
   const baseRenderExercise = renderExercise;
   renderExercise = function(){
@@ -3133,10 +3146,10 @@ document.addEventListener("visibilitychange",function(){
     if(circuit && runtime){
       let progress=$("circuitStatus");
       if(!progress){progress=document.createElement("div");progress.id="circuitStatus";progress.className="circuit-status";$("exerciseCard").querySelector(".exercise-meta").insertAdjacentElement("afterend",progress);}
-      progress.textContent="Giro "+runtime.round+"/"+runtime.rounds+" · Stazione "+(idx+1)+"/"+list.length+" · "+(runtime.phase==="work"?"Lavoro":runtime.phase==="transition"?"Cambio":"Recupero giro");
+      progress.textContent="Giro "+runtime.round+"/"+runtime.rounds+" · Stazione "+(idx+1)+"/"+list.length+" · "+(runtime.completed?"Completato":runtime.phase==="work"?"Lavoro":runtime.phase==="transition"?"Cambio":"Recupero giro");
       $("timerPreset").value=e.workDurationSeconds;
-      setTimer(e.workDurationSeconds);
-      stopTimer("Pronto");
+      if(runtime.completed){setTimer(0);stopTimer("Circuito completato");}
+      else{setTimer(e.workDurationSeconds);stopTimer("Pronto");}
     }else{
       const progress=$("circuitStatus");if(progress)progress.remove();
       $("timerPreset").value=e.rest;
@@ -3185,6 +3198,16 @@ document.addEventListener("visibilitychange",function(){
         set.actualSegments[k][input.dataset.segmentField]=input.value;
       });
     });
+    if(circuit)updateCircuitControls(runtime,list);
+  };
+
+  const baseTimerStart=$("timerStart").onclick;
+  $("timerStart").onclick=function(){
+    if(isCircuitWorkout()){
+      const runtime=window.__tracciamentoCircuitRuntime||ensureCircuitRuntime();
+      if(runtime&&!runtime.completed){runtime.started=true;updateCircuitControls(runtime,activeExercises());}
+    }
+    return baseTimerStart.call(this);
   };
 
   function startCircuitPhase(seconds,state){
@@ -3237,6 +3260,7 @@ document.addEventListener("visibilitychange",function(){
       $("timerPhaseLabel").textContent="CIRCUITO COMPLETATO";
       const finalProgress=$("circuitStatus");
       if(finalProgress)finalProgress.textContent="Circuito completato · "+runtime.round+"/"+runtime.rounds+" giri";
+      updateCircuitControls(runtime,list);
       return;
     }
     if(runtime.phase==="transition"){
@@ -3265,12 +3289,13 @@ document.addEventListener("visibilitychange",function(){
   $("timerReset").onclick=function(){
     if(!isCircuitWorkout()){baseTimerReset();return;}
     const runtime=window.__tracciamentoCircuitRuntime || ensureCircuitRuntime();
-    if(runtime){runtime.phase="work";runtime.round=1;runtime.completed=false;runtime.currentIndex=idx;}
+    if(runtime){runtime.phase="work";runtime.round=1;runtime.completed=false;runtime.started=false;runtime.currentIndex=idx;}
     const e=activeExercises()[idx];
     stopTimer("Pronto");
     timerLeft=e.workDurationSeconds ?? 120;
     setTimer(timerLeft);
     $("timerPhaseLabel").textContent="TEMPO STAZIONE";
+    updateCircuitControls(runtime,activeExercises());
     saveDraft();
   };
 

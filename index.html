@@ -3217,34 +3217,36 @@ document.addEventListener("visibilitychange",function(){
     if(runtime.phase==="work"){
       const completedRoundSet=current.data && current.data[runtime.round-1];
       if(completedRoundSet){
-        completedRoundSet.duration=String(current.workDurationSeconds || 120);
+        completedRoundSet.duration=String(current.workDurationSeconds ?? 120);
         completedRoundSet.actualWorkCompleted=true;
         saveDraft();
       }
-      runtime.phase="transition";
-      startCircuitPhase(current.transitionRestSeconds || 10,"Cambio stazione");
-      return;
-    }
-    if(runtime.phase==="transition"){
       if(idx < list.length-1){
-        idx++;
-        runtime.phase="work";
-        runtime.currentIndex=idx;
-        window.__tracciamentoCircuitAdvance=true;
-        renderExercise();
-        window.__tracciamentoCircuitAdvance=false;
-        startCircuitPhase(list[idx].workDurationSeconds || 120,"Stazione attiva");
+        runtime.phase="transition";
+        startCircuitPhase(current.transitionRestSeconds ?? 10,"Cambio stazione");
         return;
       }
       if(runtime.round < runtime.rounds){
         runtime.phase="round_rest";
-        startCircuitPhase(current.roundRestSeconds || 120,"Recupero giro");
+        startCircuitPhase(current.roundRestSeconds ?? 120,"Recupero giro");
         return;
       }
       runtime.completed=true;
       stopTimer("Circuito completato");
       setTimer(0);
       $("timerPhaseLabel").textContent="CIRCUITO COMPLETATO";
+      const finalProgress=$("circuitStatus");
+      if(finalProgress)finalProgress.textContent="Circuito completato · "+runtime.round+"/"+runtime.rounds+" giri";
+      return;
+    }
+    if(runtime.phase==="transition"){
+      idx++;
+      runtime.phase="work";
+      runtime.currentIndex=idx;
+      window.__tracciamentoCircuitAdvance=true;
+      renderExercise();
+      window.__tracciamentoCircuitAdvance=false;
+      startCircuitPhase(list[idx].workDurationSeconds ?? 120,"Stazione attiva");
       return;
     }
     if(runtime.phase==="round_rest"){
@@ -3266,7 +3268,7 @@ document.addEventListener("visibilitychange",function(){
     if(runtime){runtime.phase="work";runtime.round=1;runtime.completed=false;runtime.currentIndex=idx;}
     const e=activeExercises()[idx];
     stopTimer("Pronto");
-    timerLeft=e.workDurationSeconds || 120;
+    timerLeft=e.workDurationSeconds ?? 120;
     setTimer(timerLeft);
     $("timerPhaseLabel").textContent="TEMPO STAZIONE";
     saveDraft();

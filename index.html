@@ -3300,12 +3300,29 @@ document.addEventListener("visibilitychange",function(){
   $("timerReset").onclick=function(){
     if(!isCircuitWorkout()){baseTimerReset();return;}
     const runtime=window.__tracciamentoCircuitRuntime || ensureCircuitRuntime();
-    if(runtime){runtime.phase="work";runtime.round=1;runtime.completed=false;runtime.started=false;runtime.currentIndex=idx;}
+    const list=activeExercises();
+    if(!runtime||!list.length)return;
+    if(runtime.completed){
+      idx=0;
+      runtime.phase="work";
+      runtime.round=1;
+      runtime.completed=false;
+      runtime.started=false;
+      runtime.currentIndex=0;
+      window.__tracciamentoCircuitAdvance=true;
+      renderExercise();
+      window.__tracciamentoCircuitAdvance=false;
+    }
     const e=activeExercises()[idx];
+    const seconds=runtime.phase==="transition"
+      ? (e.transitionRestSeconds ?? 10)
+      : runtime.phase==="round_rest"
+        ? (e.roundRestSeconds ?? 120)
+        : (e.workDurationSeconds ?? 120);
     stopTimer("Pronto");
-    timerLeft=e.workDurationSeconds ?? 120;
+    timerLeft=Math.max(0,Number(seconds)||0);
     setTimer(timerLeft);
-    $("timerPhaseLabel").textContent="TEMPO STAZIONE";
+    $("timerPhaseLabel").textContent=runtime.phase==="transition"?"CAMBIO STAZIONE":runtime.phase==="round_rest"?"RECUPERO GIRO":"TEMPO STAZIONE";
     updateCircuitControls(runtime,activeExercises());
     saveDraft();
   };

@@ -89,3 +89,13 @@ Questo aggiornamento prevale su ogni indicazione precedente in conflitto. Le are
 - Quando l'utente saluta o scrive «ciao», mostrare un menu breve di azioni: scheda allenamento, aggiungere un pasto, aggiornare peso/progressi, gestione app/backup.
 - Le scelte possono essere presentate come pulsanti; usare i dati già noti senza chiedere nuovamente informazioni memorizzate.
 - Alla ricezione di un JSON di continuità, ricostruire separatamente il percorso fisico e lo stato del progetto app, verificando versione, data e branch prima di riprendere.
+
+
+## Aggiornamento 12 novembre 2026 — Restyling Compact Flow
+
+- Scelta utente: **C — Compact Flow**.
+- Commit applicato a `index.html`: `eb68a9c2fa99e3297d211c41d565bc6755180829`.
+- Restyling esclusivamente CSS: palette viola acceso, bianco e nero; card grigio sfumato; bordi grigio chiaro; timer recupero compatto integrato; righe serie più leggibili; adattamento mobile.
+- Non sono stati modificati markup funzionale, identificativi DOM, handler o logica JavaScript.
+- Verifiche statiche: 3 script JavaScript validati; 19 identificativi essenziali presenti; timer recupero presente; timer totale assente; ordine navigazione verificato.
+- Stato: branch di sviluppo `feature/recovery-timer-brand`; non pubblicato. Restano test runtime in Safari e collaudo end-to-end dei backup prima della pubblicazione.

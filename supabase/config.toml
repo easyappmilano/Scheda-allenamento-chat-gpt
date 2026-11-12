@@ -28,3 +28,12 @@ enable_confirmations = false
 
 [analytics]
 enabled = false
+
+[realtime]
+enabled = false
+
+[inbucket]
+enabled = false
+
+[edge_runtime]
+enabled = false

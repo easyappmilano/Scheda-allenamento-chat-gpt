@@ -603,6 +603,10 @@ button:disabled{opacity:.4;transform:none}
 <section id="exerciseHistoryPanel" class="card exercise-history-panel">
   <h2>Storico esercizi</h2>
   <div class="field">
+    <label for="exerciseHistorySearch">Cerca esercizio scrivendo il nome</label>
+    <input id="exerciseHistorySearch" type="search" placeholder="Es. leg press, pulley, curl…" autocomplete="off" aria-controls="exerciseHistorySelect">
+  </div>
+  <div class="field">
     <label for="exerciseHistorySelect">Seleziona un esercizio già svolto</label>
     <select id="exerciseHistorySelect" aria-label="Seleziona un esercizio svolto">
       <option value="">Accedi per caricare lo storico</option>
@@ -2375,6 +2379,8 @@ async function loadExerciseHistoryOptions(){
    datalist.appendChild(dataOption);
   });
   select.disabled=false;
+  $("exerciseHistorySearch").value="";
+  filterExerciseHistoryOptions();
   const canRestore=unique.some(function(e){return e.exercise_name===previousValue;});
   select.value=canRestore?previousValue:(unique.length?String(unique[0].exercise_name):"");
   if(select.value)await loadSelectedExerciseHistory();
@@ -2469,6 +2475,35 @@ function resetSingleExerciseForm(){
  $("singleExerciseStatus").textContent="";
  $("singleExerciseStatus").className="small muted";
 }
+function filterExerciseHistoryOptions(){
+ const select=$("exerciseHistorySelect");
+ const query=String($("exerciseHistorySearch").value||"").trim().toLocaleLowerCase("it");
+ const selected=select.value;
+ const unique=[];
+ const seen=new Set();
+ exerciseHistoryCache.forEach(function(e){
+  const name=String(e.exercise_name||"").trim();
+  const key=name.toLocaleLowerCase("it");
+  if(!name||seen.has(key)||!key.includes(query))return;
+  seen.add(key);
+  unique.push(e);
+ });
+ select.innerHTML='<option value="">'+(unique.length?"Seleziona un esercizio…":"Nessun esercizio corrispondente")+'</option>';
+ unique.forEach(function(e){
+  const name=String(e.exercise_name||"").trim();
+  const date=e.finished_at?new Date(e.finished_at).toLocaleDateString("it-IT"):"";
+  const group=e.muscle_group?" · "+e.muscle_group:"";
+  const option=document.createElement("option");
+  option.value=name;
+  option.textContent=name+group+(date?" · "+date:"");
+  select.appendChild(option);
+ });
+ if(unique.some(function(e){return e.exercise_name===selected;}))select.value=selected;
+}
+$("exerciseHistorySearch").addEventListener("input",function(){
+ filterExerciseHistoryOptions();
+ $("exerciseHistoryDetail").textContent="Seleziona un esercizio tra i risultati della ricerca.";
+});
 $("exerciseHistorySelect").onchange=loadSelectedExerciseHistory;
 $("singleExerciseName").addEventListener("change",function(){
  const name=this.value.trim();

@@ -593,6 +593,34 @@ create policy "Fitness progress photos delete own" on storage.objects
     and (storage.foldername(name))[1] = (select auth.uid())::text
   );
 
+-- Additive migration: daily weight tracking and extended context
+-- ================================================================
+
+-- Add daily/periodic body weight entries and extend the aggregate context.
+create table if not exists public.fitness_weight_entries (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  source_id text not null,
+  measured_at timestamptz not null default now(),
+  weight_kg numeric(6,2) not null,
+  data_source text not null default 'self_reported'
+    check (data_source in ('measured','self_reported','estimated')),
+  context jsonb not null default '{}'::jsonb,
+  notes text,
+  created_at timestamptz not null default now(),
+  constraint fitness_weight_entries_positive check (weight_kg > 0),
+  constraint fitness_weight_entries_user_source_unique unique (user_id, source_id)
+);
+create index if not exists fitness_weight_entries_user_date_idx
+  on public.fitness_weight_entries(user_id, measured_at desc);
+alter table public.fitness_weight_entries enable row level security;
+grant select, insert, update, delete on public.fitness_weight_entries to authenticated;
+drop policy if exists "Users manage own fitness weight entries" on public.fitness_weight_entries;
+create policy "Users manage own fitness weight entries" on public.fitness_weight_entries
+  for all to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
+
 CREATE OR REPLACE FUNCTION public.get_training_context(p_user_id uuid, p_as_of timestamp with time zone DEFAULT now())
  RETURNS jsonb
  LANGUAGE sql
@@ -873,33 +901,6 @@ grant execute on function public.get_training_context(uuid, timestamptz) to auth
 
 
 -- ================================================================
--- Additive migration: daily weight tracking and extended context
--- ================================================================
-
--- Add daily/periodic body weight entries and extend the aggregate context.
-create table if not exists public.fitness_weight_entries (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users(id) on delete cascade,
-  source_id text not null,
-  measured_at timestamptz not null default now(),
-  weight_kg numeric(6,2) not null,
-  data_source text not null default 'self_reported'
-    check (data_source in ('measured','self_reported','estimated')),
-  context jsonb not null default '{}'::jsonb,
-  notes text,
-  created_at timestamptz not null default now(),
-  constraint fitness_weight_entries_positive check (weight_kg > 0),
-  constraint fitness_weight_entries_user_source_unique unique (user_id, source_id)
-);
-create index if not exists fitness_weight_entries_user_date_idx
-  on public.fitness_weight_entries(user_id, measured_at desc);
-alter table public.fitness_weight_entries enable row level security;
-grant select, insert, update, delete on public.fitness_weight_entries to authenticated;
-drop policy if exists "Users manage own fitness weight entries" on public.fitness_weight_entries;
-create policy "Users manage own fitness weight entries" on public.fitness_weight_entries
-  for all to authenticated
-  using ((select auth.uid()) = user_id)
-  with check ((select auth.uid()) = user_id);
 CREATE OR REPLACE FUNCTION public.get_training_context(p_user_id uuid, p_as_of timestamp with time zone DEFAULT now())
  RETURNS jsonb
  LANGUAGE sql

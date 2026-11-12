@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Tracciamento Personale</title>
-<meta name="theme-color" content="#a33cff"><meta name="application-name" content="Tracciamento Personale"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Tracciamento"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><link rel="manifest" href="./manifest.webmanifest?v=4"><link rel="icon" type="image/png" sizes="192x192" href="./assets/tracciamento-icon-192.png?v=4"><link rel="apple-touch-icon" sizes="180x180" href="./assets/tracciamento-icon-192.png?v=4"><link rel="apple-touch-icon" sizes="192x192" href="./assets/tracciamento-icon-192.png?v=4">
+<meta name="theme-color" content="#a33cff"><meta name="application-name" content="Tracciamento Personale"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Tracciamento"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><link rel="manifest" href="./manifest.webmanifest?v=6"><link rel="icon" type="image/png" sizes="192x192" href="./assets/tracciamento-icon-192.png?v=6"><link rel="apple-touch-icon" sizes="180x180" href="./assets/tracciamento-icon-192.png?v=6"><link rel="apple-touch-icon" sizes="192x192" href="./assets/tracciamento-icon-192.png?v=6">
 <style>
 :root{--bg:#f3f4f6;--panel:#fff;--ink:#1f2937;--muted:#6b7280;--line:#d9dde4;--active:#737b87;--active-bg:#eef0f3;--good:#198754;--good-bg:#e8f5ed;--danger:#c8323e;--danger-bg:#fff0f1;--shadow:0 8px 26px rgba(25,35,50,.07)}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
@@ -512,11 +512,34 @@ button:disabled{opacity:.4;transform:none}
 }
 @media(prefers-reduced-motion:reduce){button{transition:none}}
 </style>
+<style id="calendar-and-brand-fixes">
+.brand-mark-wrap{display:inline-flex;width:40px;height:40px;flex:0 0 40px;align-items:center;justify-content:center;line-height:0}
+.brand-mark-svg{display:block;width:40px;height:40px;filter:drop-shadow(0 0 10px rgba(163,60,255,.32))}
+.calendar-bar{display:grid;grid-template-columns:36px auto minmax(0,1fr) 36px;align-items:center;gap:8px;width:100%;min-width:0;margin:10px 0 12px;padding:9px 10px;background:linear-gradient(145deg,rgba(44,39,54,.98),rgba(29,27,36,.99));border:1px solid #684b80;border-radius:12px}
+.calendar-bar label{font-size:13px;font-weight:800;color:#f2e8ff;white-space:nowrap}
+.calendar-bar input[type=date]{width:100%;min-width:0;max-width:none;padding:8px 9px;font-size:14px}
+.calendar-day-btn{width:36px;min-width:36px;height:36px;padding:0;border-radius:10px;font-size:22px;line-height:1}
+.training-calendar-results{margin:0 0 12px;padding:10px 12px;border:1px solid #4d4358;border-radius:12px;background:rgba(28,25,35,.92);color:var(--ink);font-size:13px}
+.training-calendar-results:empty{display:none}
+.training-calendar-results .calendar-result-heading{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:7px}
+.training-calendar-results .training-history-item{padding:9px 0;border-top:1px solid var(--line)}
+.training-calendar-results .training-history-item:first-of-type{border-top:0}
+.training-calendar-results .training-history-exercise{margin:5px 0 0;padding-left:17px}
+.training-calendar-results .training-history-exercise li{margin:3px 0}
+.food-calendar-bar{margin-top:8px}
+@media(max-width:620px){
+ .calendar-bar{grid-template-columns:32px minmax(0,1fr) auto 32px;gap:6px;padding:8px}
+ .calendar-bar label{font-size:12px}
+ .calendar-bar input[type=date]{font-size:13px;padding:7px 5px}
+ .calendar-day-btn{width:32px;min-width:32px;height:34px}
+ .brand-mark-wrap,.brand-mark-svg{width:36px;height:36px;flex-basis:36px}
+}
+</style>
 </head>
 <body>
 <div class="wrap">
 <div class="wrap">
-  <div class="top"><div class="brand"><img class="brand-mark" src="./assets/tracciamento-icon-192.png?v=4" alt="Logo Tracciamento" width="42" height="42" decoding="async" fetchpriority="high"><span>TRACCIAMENTO</span></div><span class="tag">SCHEDA INTERATTIVA</span></div>
+  <div class="top"><div class="brand"><span class="brand-mark-wrap" role="img" aria-label="Logo Tracciamento"><svg class="brand-mark-svg" viewBox="0 0 48 48" aria-hidden="true" focusable="false"><rect x="1" y="1" width="46" height="46" rx="12" fill="#a33cff"/><path d="M9 34V14l9 12 6-9 6 9 9-12v20" fill="none" stroke="#fff" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span>TRACCIAMENTO</span></div><span class="tag">SCHEDA INTERATTIVA</span></div>
   <div class="card" id="authCard">
     <div id="authForm">
       <h2>Accesso personale</h2>
@@ -534,6 +557,13 @@ button:disabled{opacity:.4;transform:none}
   <section id="stepPlans"><p id="planIntro"></p><div id="planCards"></div><button id="backTime"></button></section>
 </div>
 <div id="trainingPage" class="app-page">
+<div class="calendar-bar training-calendar-bar" aria-label="Calendario allenamenti">
+  <button id="trainingPrevDay" class="calendar-day-btn" type="button" aria-label="Giorno precedente">‹</button>
+  <label for="trainingDate">Allenamenti</label>
+  <input id="trainingDate" type="date" aria-label="Seleziona il giorno degli allenamenti">
+  <button id="trainingNextDay" class="calendar-day-btn" type="button" aria-label="Giorno successivo">›</button>
+</div>
+<div id="trainingCalendarResults" class="training-calendar-results" aria-live="polite">Accedi per consultare gli allenamenti salvati nel giorno selezionato.</div>
 <section id="trainingEmpty">
   <h1>Allenamento</h1>
   <div id="completedWorkoutNotice" class="card hidden" role="status" aria-live="polite">
@@ -626,12 +656,17 @@ button:disabled{opacity:.4;transform:none}
 </div>
 <section id="foodPage" class="app-page hidden">
   <h1>Alimentazione</h1>
+  <div class="calendar-bar food-calendar-bar" aria-label="Calendario alimentazione">
+    <button id="foodPrevDay" class="calendar-day-btn" type="button" aria-label="Giorno precedente">‹</button>
+    <label for="foodDate">Diario del giorno</label>
+    <input id="foodDate" type="date" aria-label="Seleziona il giorno del diario alimentare">
+    <button id="foodNextDay" class="calendar-day-btn" type="button" aria-label="Giorno successivo">›</button>
+  </div>
   <div class="card">
     <div class="row between"><strong>Resoconto giornaliero</strong><span class="pill">Target 1.900 kcal</span></div>
     <div class="macro-targets">
       <span>P <strong>129 g</strong></span><span>C <strong>192 g</strong></span><span>G <strong>68 g</strong></span>
     </div>
-    <div class="field"><label for="foodDate">Giornata</label><input id="foodDate" type="date"></div>
     <div id="foodTotals"></div>
   </div>
   <div class="card">
@@ -1063,6 +1098,7 @@ $("finishWorkout").onclick = async function() {
   message.classList.add("hidden");
   showTrainingView("empty");
   showCompletedWorkoutNotice("Allenamento salvato su Supabase. La prossima scheda non verrà aperta automaticamente: premi il pulsante quando vuoi iniziare.");
+  loadTrainingCalendarDay();
  }catch(error){
   finishingWorkout=false;
   button.disabled=false;button.textContent="Riprova salvataggio";
@@ -2105,10 +2141,80 @@ async function loadWeeklyFoodSummary(){
 }
 $("foodDate").value=localDateString();
 $("foodDate").onchange=loadFoodDay;
+$("trainingDate").value=localDateString();
+$("trainingDate").onchange=loadTrainingCalendarDay;
+$("trainingPrevDay").onclick=function(){shiftCalendarDay("trainingDate",-1,loadTrainingCalendarDay);};
+$("trainingNextDay").onclick=function(){shiftCalendarDay("trainingDate",1,loadTrainingCalendarDay);};
+$("foodPrevDay").onclick=function(){shiftCalendarDay("foodDate",-1,loadFoodDay);};
+$("foodNextDay").onclick=function(){shiftCalendarDay("foodDate",1,loadFoodDay);};
 $("refreshFood").onclick=loadFoodDay;
 $("backupScope").onchange=function(){$("backupDate").disabled=this.value==="all";};
 $("backupDate").disabled=false;
 
+async function loadTrainingCalendarDay(){
+ const panel=$("trainingCalendarResults");
+ if(!panel)return;
+ const day=$("trainingDate").value||localDateString();
+ if(!currentUser){
+  panel.textContent="Accedi per consultare gli allenamenti salvati nel giorno selezionato.";
+  return;
+ }
+ const dateTitle=new Date(day+"T12:00:00").toLocaleDateString("it-IT",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});
+ panel.innerHTML='<div class="calendar-result-heading"><strong>Allenamenti del '+esc(dateTitle)+'</strong><span class="small muted">Caricamento…</span></div>';
+ try{
+  const result=await supabaseClient.from("workouts")
+   .select("id,plan_title,started_at,finished_at,duration_seconds,status")
+   .eq("user_id",currentUser.id)
+   .gte("finished_at",isoStart(day)).lt("finished_at",isoEnd(day))
+   .eq("status","completed").order("finished_at",{ascending:true});
+  if(result.error)throw result.error;
+  const workouts=result.data||[];
+  if(!workouts.length){
+   panel.innerHTML='<div class="calendar-result-heading"><strong>Allenamenti del '+esc(dateTitle)+'</strong></div><span class="small muted">Nessun allenamento salvato per questa data.</span>';
+   return;
+  }
+  const ids=workouts.map(function(w){return w.id;});
+  const exResult=await supabaseClient.from("workout_exercises")
+   .select("id,workout_id,exercise_name,muscle_group,exercise_order,registered,removed")
+   .eq("user_id",currentUser.id).in("workout_id",ids).order("exercise_order",{ascending:true});
+  if(exResult.error)throw exResult.error;
+  const exerciseRows=exResult.data||[];
+  const exerciseIds=exerciseRows.map(function(e){return e.id;});
+  let setRows=[];
+  if(exerciseIds.length){
+   const setResult=await supabaseClient.from("workout_sets")
+    .select("workout_exercise_id,set_number,weight_kg,reps,rir,completed")
+    .eq("user_id",currentUser.id).in("workout_exercise_id",exerciseIds).order("set_number",{ascending:true});
+   if(setResult.error)throw setResult.error;
+   setRows=setResult.data||[];
+  }
+  const content=workouts.map(function(w){
+   const timestamp=w.finished_at||w.started_at;
+   const time=timestamp?new Date(timestamp).toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"}):"";
+   const sessionExercises=exerciseRows.filter(function(e){return e.workout_id===w.id&&!e.removed&&e.registered;});
+   const exerciseHtml=sessionExercises.map(function(e){
+    const rows=setRows.filter(function(s){return s.workout_exercise_id===e.id&&s.completed;});
+    const detail=rows.map(function(s){
+     const weight=s.weight_kg==null?"—":String(s.weight_kg)+" kg";
+     const reps=s.reps==null?"—":String(s.reps)+" rip.";
+     return weight+" × "+reps+(s.rir==null?"":" · RIR "+s.rir);
+    }).join(" | ");
+    return "<li><strong>"+esc(e.exercise_name)+"</strong>"+(detail?"<div class='small muted'>"+esc(detail)+"</div>":"")+"</li>";
+   }).join("");
+   return '<div class="training-history-item"><div class="row between"><strong>'+esc(w.plan_title||"Allenamento")+'</strong><span class="small muted">'+esc(time)+'</span></div>'+(sessionExercises.length?'<ol class="training-history-exercise">'+exerciseHtml+'</ol>':'<p class="small muted">Nessun esercizio registrato nella sessione.</p>')+'</div>';
+  }).join("");
+  panel.innerHTML='<div class="calendar-result-heading"><strong>Allenamenti del '+esc(dateTitle)+'</strong><span class="small muted">'+workouts.length+' sessioni</span></div>'+content;
+ }catch(error){
+  panel.innerHTML='<span class="small muted">Impossibile caricare il calendario: '+esc(error.message||String(error))+'</span>';
+ }
+}
+function shiftCalendarDay(inputId,delta,refresh){
+ const input=$(inputId);
+ const date=new Date((input.value||localDateString())+"T12:00:00");
+ date.setDate(date.getDate()+delta);
+ input.value=localDateString(date);
+ refresh();
+}
 function importLegacyUnquantifiedNotes(notes){
  return (notes||[]).filter(function(n){return n.date&&String(n.status||"").includes("consumed")&&!String(n.status).includes("duplicate");});
 }
@@ -2183,6 +2289,7 @@ appNavigate=function(page){
   if(activePlan&&workoutSessionId)showTrainingView("workout");
   else showTrainingView("empty");
   loadNextChatGPTWorkout();
+  loadTrainingCalendarDay();
  }else{
   hideAllMainPages();$(page==="food"?"foodPage":"filesPage").classList.remove("hidden");setActiveNav(page);
   if(page==="food")loadFoodDay();
@@ -2210,11 +2317,11 @@ async function loadFoodBackupEntry(){
 }
 supabaseClient.auth.onAuthStateChange(function(_event,session){
  if(session&&session.user){
-  setTimeout(function(){loadWeeklyFoodSummary();if(!$("foodPage").classList.contains("hidden"))loadFoodDay();},250);
+  setTimeout(function(){loadWeeklyFoodSummary();loadTrainingCalendarDay();if(!$("foodPage").classList.contains("hidden"))loadFoodDay();},250);
  }
 });
 $("loginBtn").addEventListener("click",function(){
- setTimeout(function(){supabaseClient.auth.getSession().then(function(r){if(r.data&&r.data.session){loadWeeklyFoodSummary();loadFoodDay();}});},400);
+ setTimeout(function(){supabaseClient.auth.getSession().then(function(r){if(r.data&&r.data.session){loadWeeklyFoodSummary();loadFoodDay();loadTrainingCalendarDay();}});},400);
 });
 $("restart").addEventListener("click",function(){
  try{localStorage.removeItem(PENDING_PLAN_KEY);}catch(e){}
@@ -2234,7 +2341,7 @@ if(activePlan&&workoutSessionId){
  }else showTrainingView("empty");
 }
 supabaseClient.auth.getSession().then(function(r){
- if(r.data&&r.data.session){currentUser=r.data.session.user;loadNextChatGPTWorkout();}
+ if(r.data&&r.data.session){currentUser=r.data.session.user;loadNextChatGPTWorkout();loadTrainingCalendarDay();}
 });
 document.addEventListener("visibilitychange",function(){
  if(document.visibilityState==="hidden")saveDraft();

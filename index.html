@@ -3053,6 +3053,8 @@ document.addEventListener("visibilitychange",function(){
     let text = spec.label || names[kind] || kind;
     const reps = spec.rep_range || spec.reps || spec.target_reps;
     if(reps) text += " · " + reps + " rip";
+    const load = spec.load_kg !== undefined && spec.load_kg !== null ? spec.load_kg : spec.target_load_kg;
+    if(load !== undefined && load !== null && load !== "") text += " · " + load + " kg";
     const rir = spec.target_rir || spec.rir;
     if(rir !== undefined && rir !== null && rir !== "") text += " · RIR " + rir;
     if(spec.tempo_eccentric_seconds) text += " · eccentrica " + spec.tempo_eccentric_seconds + "s";

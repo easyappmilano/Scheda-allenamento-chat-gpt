@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tracciamento Personale</title>
-<meta name="theme-color" content="#3f4650"><meta name="application-name" content="Tracciamento Allenamento">
+<meta name="theme-color" content="#8b2cf5"><meta name="application-name" content="Tracciamento Personale"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Tracciamento"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><link rel="manifest" href="manifest.webmanifest"><link rel="icon" type="image/png" sizes="192x192" href="assets/tracciamento-icon-192.png"><link rel="apple-touch-icon" sizes="192x192" href="assets/tracciamento-icon-192.png>
 <style>
 :root{--bg:#f3f4f6;--panel:#fff;--ink:#1f2937;--muted:#6b7280;--line:#d9dde4;--active:#737b87;--active-bg:#eef0f3;--good:#198754;--good-bg:#e8f5ed;--danger:#c8323e;--danger-bg:#fff0f1;--shadow:0 8px 26px rgba(25,35,50,.07)}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
@@ -217,12 +217,13 @@ button:disabled{filter:saturate(.5);opacity:.42;transform:none;box-shadow:none}
 @media(prefers-reduced-motion:reduce){
  *,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}
 }
+.brand{display:flex;align-items:center;gap:10px}.brand-mark{width:40px;height:40px;border-radius:11px;object-fit:cover;flex:0 0 auto;box-shadow:0 0 20px rgba(139,44,245,.28)}
 </style>
 </head>
 <body>
 <div class="wrap">
 <div class="wrap">
-  <div class="top"><div class="brand">TRACCIAMENTO PERSONALE</div><span class="tag">SCHEDA INTERATTIVA</span></div>
+  <div class="top"><div class="brand"><img class="brand-mark" src="assets/tracciamento-icon-192.png" alt=""><span>TRACCIAMENTO PERSONALE</span></div><span class="tag">SCHEDA INTERATTIVA</span></div>
   <div class="card" id="authCard">
     <div id="authForm">
       <h2>Accesso personale</h2>
@@ -254,13 +255,6 @@ button:disabled{filter:saturate(.5);opacity:.42;transform:none;box-shadow:none}
 <section id="stepWorkout" class="hidden">
     <div id="workoutWarmup" class="card workout-warmup"></div>
     <div class="row between"><div><h1 id="workoutTitle">Scheda selezionata</h1><p class="muted small" id="workoutDuration"></p></div><span class="tag" id="workoutStatus">IN CORSO</span></div>
-    <div class="card workout-clock">
-      <div class="row between">
-        <div><div class="small muted">Tempo attivo stimato</div><strong id="workoutElapsedDisplay">00:00</strong></div>
-        <button class="ghost" id="workoutPauseToggle" type="button">Metti in pausa</button>
-      </div>
-      <p id="workoutClockStatus" class="note">Il conteggio si sospende se l'app va in background o resta inattiva per 10 minuti. Puoi mettere in pausa manualmente.</p>
-    </div>
     <div class="row between"><span class="small muted" id="exerciseCount">Esercizio 1 di 6</span><span class="small muted" id="registeredCount">0 registrati</span></div><div class="status-legend"><span><i class="dot bad"></i> Da registrare</span><span><i class="dot active"></i> In corso</span><span><i class="dot good"></i> Registrato</span></div><div class="progress"><div id="progressBar"></div></div>
     <div class="exercise-card" id="exerciseCard">
       <div class="exercise-head"><div class="field"><label for="exerciseSelect">Esercizio</label><select id="exerciseSelect"></select></div><button class="danger" id="deleteExercise" title="Rimuovi dalla scheda corrente">✕</button></div>
@@ -385,7 +379,7 @@ $('timerPause').onclick=()=>{if(timerDeadline){timerLeft=Math.max(0,Math.ceil((t
 let finalSummaryText='';
 function buildSummaryText(){
  const done=exercises.filter(e=>!e.removed&&e.registered),removed=exercises.filter(e=>e.removed).length,pending=exercises.filter(e=>!e.removed&&!e.registered).length;
- const lines=[`ALLENAMENTO — ${new Date().toLocaleDateString('it-IT')}`,`Scheda: ${activePlan?.title||'Non specificata'}`,`Tempo attivo: ${formatWorkoutElapsed(Math.floor(workoutActiveMs/1000))}`,`Tempo disponibile: ${$('duration').value||'Non specificato'} minuti`,`Esercizi registrati: ${done.length} | Non registrati: ${pending} | Rimossi: ${removed}`,''];
+ const lines=[`ALLENAMENTO — ${new Date().toLocaleDateString('it-IT')}`,`Scheda: ${activePlan?.title||'Non specificata'}`,`Durata effettiva: non misurata`,`Tempo disponibile: ${$('duration').value||'Non specificato'} minuti`,`Esercizi registrati: ${done.length} | Non registrati: ${pending} | Rimossi: ${removed}`,''];
  done.forEach(e=>{lines.push(`${e.name} — ${e.group} — ${e.data.length} serie`);e.data.forEach((s,j)=>lines.push(`  Serie ${j+1}: ${s.kg||'—'} kg | ${s.reps||'—'} rip. | RIR ${s.rir||'—'}`));if(e.notes)lines.push(`  Note: ${e.notes}`);lines.push('')});
  exercises.filter(e=>!e.removed&&!e.registered).forEach(e=>{lines.push(`NON REGISTRATO: ${e.name}`);e.data.forEach((s,j)=>{if(s.kg||s.reps||s.rir)lines.push(`  Serie ${j+1}: ${s.kg||'—'} kg | ${s.reps||'—'} rip. | RIR ${s.rir||'—'}`)});if(e.notes)lines.push(`  Note: ${e.notes}`)});
  lines.push('Fine allenamento. Aggiorna lo storico personale con i dati effettivamente compilati.');return lines.join('\n');
@@ -411,14 +405,7 @@ let currentUser = null;
 let workoutSessionId = null;
 let workoutStartedAt = null;
 let remoteWorkoutPlanId = null;
-let workoutActiveMs = 0;
-let workoutClockLastTickAt = null;
-let workoutLastActivityAt = null;
-let workoutManuallyPaused = false;
-let workoutIdlePaused = false;
-let workoutClockInterval = null;
 let finishingWorkout = false;
-const WORKOUT_IDLE_TIMEOUT_MS = 10 * 60 * 1000;
 
 function updateAuthUI(session) {
   currentUser = session && session.user ? session.user : null;
@@ -467,121 +454,6 @@ function createSessionId() {
 }
 const SESSION_META_KEY = "tracciamento_allenamento_cloud_session_v1";
 const WAITING_NEXT_PLAN_KEY = "tracciamento_workout_waiting_next_plan_v1";
-function formatWorkoutElapsed(seconds) {
-  const total = Math.max(0, Math.floor(Number(seconds) || 0));
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = total % 60;
-  return h > 0
-    ? String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0")
-    : String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
-}
-function renderWorkoutClock() {
-  const display = $("workoutElapsedDisplay");
-  const status = $("workoutClockStatus");
-  const pauseButton = $("workoutPauseToggle");
-  if (display) display.textContent = formatWorkoutElapsed(workoutActiveMs / 1000);
-  if (pauseButton) pauseButton.textContent = workoutManuallyPaused ? "Riprendi allenamento" : "Metti in pausa";
-  if (status) {
-    status.textContent = workoutManuallyPaused
-      ? "Pausa manuale: il tempo non viene conteggiato."
-      : workoutIdlePaused
-        ? "Pausa automatica per inattività. Il conteggio riprenderà quando userai di nuovo l'app."
-        : document.visibilityState !== "visible"
-          ? "Pausa: app in background."
-          : "Il conteggio si sospende se l'app va in background o resta inattiva per 10 minuti.";
-  }
-}
-function advanceWorkoutClock(now, allowHidden) {
-  if (workoutClockLastTickAt === null) return;
-  if (!activePlan || !workoutSessionId || workoutManuallyPaused || (!allowHidden && document.visibilityState !== "visible")) {
-    workoutClockLastTickAt = null;
-    renderWorkoutClock();
-    return;
-  }
-  const idleDeadline = (workoutLastActivityAt || workoutClockLastTickAt) + WORKOUT_IDLE_TIMEOUT_MS;
-  const creditedUntil = Math.min(now, idleDeadline);
-  if (creditedUntil > workoutClockLastTickAt) workoutActiveMs += creditedUntil - workoutClockLastTickAt;
-  if (now >= idleDeadline) {
-    workoutClockLastTickAt = null;
-    workoutIdlePaused = true;
-  } else {
-    workoutClockLastTickAt = now;
-  }
-  renderWorkoutClock();
-}
-function startWorkoutClock(reset) {
-  if (reset) {
-    workoutActiveMs = 0;
-    workoutManuallyPaused = false;
-    workoutIdlePaused = false;
-  }
-  if (!activePlan || !workoutSessionId) {
-    workoutClockLastTickAt = null;
-    renderWorkoutClock();
-    return;
-  }
-  const now = Date.now();
-  workoutLastActivityAt = now;
-  workoutClockLastTickAt = workoutManuallyPaused || document.visibilityState !== "visible" ? null : now;
-  workoutIdlePaused = false;
-  renderWorkoutClock();
-  storeSessionMeta();
-}
-function resetWorkoutClock() {
-  workoutActiveMs = 0;
-  workoutClockLastTickAt = null;
-  workoutLastActivityAt = null;
-  workoutManuallyPaused = false;
-  workoutIdlePaused = false;
-  renderWorkoutClock();
-}
-function handleWorkoutActivity() {
-  if (!activePlan || !workoutSessionId || workoutManuallyPaused || document.visibilityState !== "visible") return;
-  const now = Date.now();
-  if (workoutClockLastTickAt !== null) advanceWorkoutClock(now);
-  workoutLastActivityAt = now;
-  if (workoutClockLastTickAt === null) {
-    workoutClockLastTickAt = now;
-    workoutIdlePaused = false;
-  }
-  renderWorkoutClock();
-}
-document.addEventListener("pointerdown", handleWorkoutActivity, {passive:true});
-document.addEventListener("keydown", handleWorkoutActivity);
-document.addEventListener("input", handleWorkoutActivity);
-document.addEventListener("change", handleWorkoutActivity);
-document.addEventListener("visibilitychange", function() {
-  if (document.visibilityState === "hidden") {
-    advanceWorkoutClock(Date.now(), true);
-    workoutClockLastTickAt = null;
-  } else if (activePlan && workoutSessionId && !workoutManuallyPaused) {
-    workoutLastActivityAt = Date.now();
-    workoutClockLastTickAt = Date.now();
-    workoutIdlePaused = false;
-  }
-  renderWorkoutClock();
-  storeSessionMeta();
-});
-if ($("workoutPauseToggle")) $("workoutPauseToggle").addEventListener("click", function() {
-  const now = Date.now();
-  if (!activePlan || !workoutSessionId) return;
-  if (workoutManuallyPaused) {
-    workoutManuallyPaused = false;
-    workoutLastActivityAt = now;
-    workoutClockLastTickAt = document.visibilityState === "visible" ? now : null;
-    workoutIdlePaused = false;
-  } else {
-    advanceWorkoutClock(now);
-    workoutManuallyPaused = true;
-    workoutClockLastTickAt = null;
-  }
-  renderWorkoutClock();
-  storeSessionMeta();
-});
-setInterval(function() {
-  if (activePlan && workoutSessionId) advanceWorkoutClock(Date.now());
-}, 1000);
 function isAwaitingNextPlan() {
   try { return localStorage.getItem(WAITING_NEXT_PLAN_KEY) === "1"; } catch (e) { return false; }
 }
@@ -606,9 +478,7 @@ function storeSessionMeta() {
     localStorage.setItem(SESSION_META_KEY, JSON.stringify({
       sessionId: workoutSessionId,
       startedAt: workoutStartedAt,
-      remotePlanId: remoteWorkoutPlanId,
-      activeSeconds: Math.floor(workoutActiveMs / 1000),
-      manuallyPaused: workoutManuallyPaused
+      remotePlanId: remoteWorkoutPlanId
     }));
     const raw = localStorage.getItem(DRAFT_KEY);
     if (raw) {
@@ -616,8 +486,8 @@ function storeSessionMeta() {
       draft.sessionId = workoutSessionId;
       draft.startedAt = workoutStartedAt;
       draft.remotePlanId = remoteWorkoutPlanId;
-      draft.activeSeconds = Math.floor(workoutActiveMs / 1000);
-      draft.manuallyPaused = workoutManuallyPaused;
+      delete draft.activeSeconds;
+      delete draft.manuallyPaused;
       localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
     }
   } catch (e) {}
@@ -632,13 +502,6 @@ function restoreSessionMeta() {
       workoutSessionId = (draft && draft.sessionId) || (meta && meta.sessionId) || createSessionId();
       workoutStartedAt = (draft && draft.startedAt) || (meta && meta.startedAt) || (draft && draft.updatedAt) || new Date().toISOString();
       remoteWorkoutPlanId = (draft && draft.remotePlanId) || (meta && meta.remotePlanId) || null;
-      const clockData = draft || meta || {};
-      workoutActiveMs = Math.max(0, Number(clockData.activeSeconds) || 0) * 1000;
-      workoutManuallyPaused = !!clockData.manuallyPaused;
-      workoutLastActivityAt = Date.now();
-      workoutIdlePaused = false;
-      workoutClockLastTickAt = workoutManuallyPaused || document.visibilityState !== "visible" ? null : Date.now();
-      renderWorkoutClock();
       storeSessionMeta();
     }
   } catch (e) {}
@@ -675,24 +538,23 @@ $("planCards").addEventListener("click", function(event) {
   }
   workoutSessionId = createSessionId();
   workoutStartedAt = new Date().toISOString();
-  resetWorkoutClock();
-  startWorkoutClock(true);
+  
+  
   storeSessionMeta();
 }, true);
 
 async function persistWorkoutToSupabase() {
   if (!currentUser) throw new Error("Accedi al tuo account prima di sincronizzare.");
   if (!activePlan || !workoutSessionId) throw new Error("Non trovo l'identificativo della sessione.");
-  advanceWorkoutClock(Date.now());
+  
   const startedAt = workoutStartedAt || new Date().toISOString();
   const finishedAt = new Date().toISOString();
-  const durationSeconds = Math.max(0, Math.floor(workoutActiveMs / 1000));
   const workoutResult = await supabaseClient.from("workouts").upsert({
     user_id: currentUser.id,
     client_session_id: workoutSessionId,
     started_at: startedAt,
     finished_at: finishedAt,
-    duration_seconds: durationSeconds,
+    duration_seconds: null,
     status: "completed",
     plan_id: activePlan.id,
     plan_title: activePlan.title,
@@ -769,7 +631,7 @@ $("finishWorkout").onclick = async function() {
  finishingWorkout=true;
  const button=this;
  const message=$("workoutSaveMessage");
- advanceWorkoutClock(Date.now());
+ 
  storeSessionMeta();
  button.disabled=true;
  button.textContent="Salvataggio…";
@@ -790,7 +652,7 @@ $("finishWorkout").onclick = async function() {
   }catch(e){}
   setAwaitingNextPlan(true);
   activePlan=null;exercises=[];idx=0;workoutSessionId=null;workoutStartedAt=null;remoteWorkoutPlanId=null;
-  resetWorkoutClock();
+  
   stopTimer("Pronto");setTimer(120);
   finishingWorkout=false;
   button.disabled=false;button.textContent="Termina allenamento";
@@ -930,8 +792,8 @@ function applyNormalizedWorkout(planObj,asPending){
   hideCompletedWorkoutNotice();
   workoutSessionId=createSessionId();
   workoutStartedAt=new Date().toISOString();
-  resetWorkoutClock();
-  startWorkoutClock(true);
+  
+  
   storeSessionMeta();
   renderExercise();
   showTrainingView("workout");
@@ -977,21 +839,31 @@ function normalizeExerciseKey(name) {
   .replace(/\b(macchina|machine)\b/g,"").replace(/[^a-z0-9]+/g," ").trim();
 }
 async function compareQueuedPlanWithLastWorkout(row) {
- const latest=await supabaseClient.from("workouts").select("id,plan_title")
-  .eq("user_id",currentUser.id).eq("status","completed").gte("duration_seconds",120)
-  .order("finished_at",{ascending:false}).limit(1).maybeSingle();
- if(latest.error)throw latest.error;
- if(!latest.data)return {similar:false,percentage:0};
- const oldExercises=await supabaseClient.from("workout_exercises").select("exercise_name")
-  .eq("workout_id",latest.data.id).eq("removed",false).order("exercise_order",{ascending:true});
- if(oldExercises.error)throw oldExercises.error;
- const previous=(oldExercises.data||[]).map(x=>normalizeExerciseKey(x.exercise_name)).filter(Boolean);
+ const recent=await supabaseClient.from("workouts").select("id,plan_title")
+  .eq("user_id",currentUser.id).eq("status","completed")
+  .order("finished_at",{ascending:false}).limit(12);
+ if(recent.error)throw recent.error;
+ const workoutIds=(recent.data||[]).map(x=>x.id);
+ if(!workoutIds.length)return {similar:false,percentage:0};
+ const oldRows=await supabaseClient.from("workout_exercises")
+  .select("workout_id,exercise_name").eq("user_id",currentUser.id)
+  .in("workout_id",workoutIds).eq("removed",false).eq("registered",true)
+  .order("exercise_order",{ascending:true});
+ if(oldRows.error)throw oldRows.error;
+ const byWorkout=new Map();
+ (oldRows.data||[]).forEach(x=>{
+  if(!byWorkout.has(x.workout_id))byWorkout.set(x.workout_id,[]);
+  byWorkout.get(x.workout_id).push(normalizeExerciseKey(x.exercise_name));
+ });
+ const previousWorkout=(recent.data||[]).find(w=>(byWorkout.get(w.id)||[]).filter(Boolean).length>=2);
+ if(!previousWorkout)return {similar:false,percentage:0};
+ const previous=(byWorkout.get(previousWorkout.id)||[]).filter(Boolean);
  const nextPlan=normalizePlanData(row.plan_data);
  const next=(nextPlan.normalizedExercises||[]).map(x=>normalizeExerciseKey(x.name)).filter(Boolean);
  if(previous.length<2||next.length<2)return {similar:false,percentage:0};
  const matches=next.filter(name=>previous.includes(name)).length;
  const percentage=matches/Math.max(previous.length,next.length);
- const sameTitle=normalizeExerciseKey(latest.data.plan_title)===normalizeExerciseKey(nextPlan.title);
+ const sameTitle=normalizeExerciseKey(previousWorkout.plan_title)===normalizeExerciseKey(nextPlan.title);
  return {similar:percentage>=0.8||(sameTitle&&percentage>=0.65),percentage,previousCount:previous.length,nextCount:next.length,title:nextPlan.title};
 }
 async function loadNextChatGPTWorkout(userInitiated=false){
@@ -1920,7 +1792,7 @@ function startImportedWorkout(){
  try{localStorage.removeItem(PENDING_PLAN_KEY);}catch(e){}
  setAwaitingNextPlan(false);hideCompletedWorkoutNotice();
  const preview=$("pendingWorkoutPreview");if(preview)preview.classList.add("hidden");
- workoutSessionId=createSessionId();workoutStartedAt=new Date().toISOString();resetWorkoutClock();startWorkoutClock(true);storeSessionMeta();
+ workoutSessionId=createSessionId();workoutStartedAt=new Date().toISOString();storeSessionMeta();
  $("workoutStatus").textContent="IN CORSO";$("workoutStatus").className="tag";
  if($("workoutWarmup"))$("workoutWarmup").innerHTML="<strong>Riscaldamento · "+Number(activePlan.warmupMinutes||5)+" min</strong><p>"+esc(activePlan.warmupNotes||"Riscaldamento generale e specifico.")+"</p>";
  renderExercise();show("stepWorkout");saveDraft();

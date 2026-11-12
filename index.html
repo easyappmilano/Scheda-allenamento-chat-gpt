@@ -1278,6 +1278,7 @@ async function persistWorkoutToSupabase() {
     muscle_group: exercise.group,
     exercise_order: index,
     notes: exercise.notes || null,
+    exercise_type: exercise.exerciseType || null,
     removed: !!exercise.removed,
     registered: !!exercise.registered,
     rep_range: exercise.repRange || null,
@@ -1486,7 +1487,7 @@ function normalizePlanData(input){
   focus:plan.focus||"",
   badge:"Scheda importata da ChatGPT",
   desc:plan.reasoning_summary||plan.notes||"",
-  selectionMode:plan.selection_mode||null,
+  selectionMode:plan.selection_mode||normalized.sessionType||null,
   requestedGroups:plan.requested_groups||[],
   aiGenerated:true,
   durationMinutes:Number(plan.duration_minutes||plan.available_minutes||0),
@@ -3184,6 +3185,12 @@ document.addEventListener("visibilitychange",function(){
     const list=activeExercises();
     const current=list[idx];
     if(runtime.phase==="work"){
+      const completedRoundSet=current.data && current.data[runtime.round-1];
+      if(completedRoundSet){
+        completedRoundSet.duration=String(current.workDurationSeconds || 120);
+        completedRoundSet.actualWorkCompleted=true;
+        saveDraft();
+      }
       runtime.phase="transition";
       startCircuitPhase(current.transitionRestSeconds || 10,"Cambio stazione");
       return;

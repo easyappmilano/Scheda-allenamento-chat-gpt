@@ -3031,15 +3031,31 @@ document.addEventListener("visibilitychange",function(){
       const n=Number(value);
       return Number.isFinite(n)?Math.max(0,Math.floor(n)):fallback;
     }
+    const requestedModes=rawExercises.map(function(raw){
+      return String(raw.execution_mode || raw.executionMode || "standard").toLowerCase();
+    });
+    const hasCircuitMode=requestedModes.some(function(mode){return mode==="circuit";});
+    const allCircuitModes=requestedModes.length>0&&requestedModes.every(function(mode){return mode==="circuit";});
+    if(normalized.sessionType!=="circuit"&&hasCircuitMode&&!allCircuitModes){
+      throw new Error("Una scheda a circuito deve avere tutte le stazioni in modalità circuito.");
+    }
+    if(allCircuitModes)normalized.sessionType="circuit";
+    const circuitSession=normalized.sessionType==="circuit";
+    const firstRaw=rawExercises[0]||{};
+    const sessionRounds=positiveInteger(
+      normalized.circuit.rounds ?? firstRaw.circuit_rounds ?? firstRaw.circuitRounds ?? normalized.normalizedExercises[0].sets,
+      3
+    );
+    if(circuitSession)normalized.circuit.rounds=sessionRounds;
     normalized.normalizedExercises = normalized.normalizedExercises.map(function(exercise,index){
       const raw = rawExercises[index] || {};
       const scheme = Array.isArray(raw.set_scheme) ? raw.set_scheme : (Array.isArray(raw.setScheme) ? raw.setScheme : []);
-      const executionMode = String(raw.execution_mode || raw.executionMode || (normalized.sessionType === "circuit" ? "circuit" : "standard")).toLowerCase();
-      const circuitRounds = positiveInteger(
-        raw.circuit_rounds ?? raw.circuitRounds ?? normalized.circuit.rounds ?? exercise.sets,
+      const executionMode = circuitSession ? "circuit" : String(raw.execution_mode || raw.executionMode || "standard").toLowerCase();
+      const circuitRounds = circuitSession ? sessionRounds : positiveInteger(
+        raw.circuit_rounds ?? raw.circuitRounds ?? exercise.sets,
         3
       );
-      const count = executionMode === "circuit" ? circuitRounds : (scheme.length || exercise.data.length);
+      const count = circuitSession ? sessionRounds : (scheme.length || exercise.data.length);
       const sourceData = exercise.data || [];
       const data = Array.from({length:count},function(_,setIndex){
         const existing = sourceData[setIndex] || {kg:"",reps:"",rir:""};
@@ -3073,7 +3089,7 @@ document.addEventListener("visibilitychange",function(){
         sets: count
       });
     });
-    if(normalized.sessionType === "circuit" || normalized.normalizedExercises.every(function(e){return e.executionMode === "circuit";})){
+    if(circuitSession){
       normalized.normalizedExercises.sort(function(a,b){return a.circuitOrder-b.circuitOrder;});
     }
     normalized.ex = normalized.normalizedExercises.map(function(e){return [e.name,e.group,e.sets,e.repRange,e.rest,e.previous,e.coachingNote,e.targetRir];});

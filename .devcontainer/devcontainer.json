@@ -10,17 +10,12 @@
     }
   },
   "forwardPorts": [
-    3000,
-    54323
+    3000
   ],
   "portsAttributes": {
     "3000": {
       "label": "Tracciamento Personale Preview",
       "onAutoForward": "openBrowser",
-      "visibility": "private"
-    },
-    "54323": {
-      "label": "Supabase Studio Preview",
       "visibility": "private"
     }
   },

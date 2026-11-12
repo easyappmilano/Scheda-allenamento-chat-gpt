@@ -557,6 +557,7 @@ button:disabled{opacity:.4;transform:none}
   <section id="stepPlans"><p id="planIntro"></p><div id="planCards"></div><button id="backTime"></button></section>
 </div>
 <div id="trainingPage" class="app-page">
+<div id="trainingCalendarShell">
 <div class="calendar-bar training-calendar-bar" aria-label="Calendario allenamenti">
   <button id="trainingPrevDay" class="calendar-day-btn" type="button" aria-label="Giorno precedente">‹</button>
   <label for="trainingDate">Allenamenti</label>
@@ -564,6 +565,7 @@ button:disabled{opacity:.4;transform:none}
   <button id="trainingNextDay" class="calendar-day-btn" type="button" aria-label="Giorno successivo">›</button>
 </div>
 <div id="trainingCalendarResults" class="training-calendar-results" aria-live="polite">Accedi per consultare gli allenamenti salvati nel giorno selezionato.</div>
+</div>
 <section id="trainingEmpty">
   <h1>Allenamento</h1>
   <div id="completedWorkoutNotice" class="card hidden" role="status" aria-live="polite">
@@ -1139,6 +1141,7 @@ function setActiveNav(page){
 function showTrainingView(view){
  hideAllMainPages();
  $("trainingPage").classList.remove("hidden");
+ $("trainingCalendarShell").classList.toggle("hidden",view!=="empty");
  $("trainingEmpty").classList.toggle("hidden",view!=="empty");
  $("stepWorkout").classList.toggle("hidden",view!=="workout");
  $("stepSummary").classList.toggle("hidden",view!=="summary");

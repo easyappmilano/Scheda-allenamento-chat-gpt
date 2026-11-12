@@ -1291,10 +1291,10 @@ async function persistWorkoutToSupabase() {
     set_scheme: (exercise.data || []).map(set => set.scheme || { kind: "straight" }),
     circuit_id: exercise.circuitId || null,
     circuit_order: Number.isFinite(Number(exercise.circuitOrder)) ? Number(exercise.circuitOrder) : null,
-    work_duration_seconds: exercise.executionMode === "circuit" ? Number(exercise.workDurationSeconds || 120) : null,
-    transition_rest_seconds: exercise.executionMode === "circuit" ? Number(exercise.transitionRestSeconds || 10) : null,
-    round_rest_seconds: exercise.executionMode === "circuit" ? Number(exercise.roundRestSeconds || 120) : null,
-    circuit_rounds: exercise.executionMode === "circuit" ? Number(exercise.circuitRounds || 3) : null
+    work_duration_seconds: exercise.executionMode === "circuit" ? Number(exercise.workDurationSeconds ?? 120) : null,
+    transition_rest_seconds: exercise.executionMode === "circuit" ? Number(exercise.transitionRestSeconds ?? 10) : null,
+    round_rest_seconds: exercise.executionMode === "circuit" ? Number(exercise.roundRestSeconds ?? 120) : null,
+    circuit_rounds: exercise.executionMode === "circuit" ? Number(exercise.circuitRounds ?? 3) : null
   }));
   const exerciseIdsByOrder = {};
   if (exerciseRows.length) {

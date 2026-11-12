@@ -1487,7 +1487,7 @@ function normalizePlanData(input){
   focus:plan.focus||"",
   badge:"Scheda importata da ChatGPT",
   desc:plan.reasoning_summary||plan.notes||"",
-  selectionMode:plan.selection_mode||normalized.sessionType||null,
+  selectionMode:plan.selection_mode||plan.session_type||plan.sessionType||plan.execution_mode||null,
   requestedGroups:plan.requested_groups||[],
   aiGenerated:true,
   durationMinutes:Number(plan.duration_minutes||plan.available_minutes||0),
@@ -1880,7 +1880,8 @@ async function collectArchive(scope,date,kind){
   return Object.assign({},w,{
    exercises:exerciseRows.filter(function(e){return e.workout_id===w.id;}).map(function(e){
     return Object.assign({},e,{sets:setRows.filter(function(s){return s.workout_exercise_id===e.id;}).map(function(s){return {
-     set_number:s.set_number,weight_kg:s.weight_kg,reps:s.reps,rir:s.rir,rest_seconds:s.rest_seconds,completed:s.completed
+     set_number:s.set_number,weight_kg:s.weight_kg,reps:s.reps,rir:s.rir,rest_seconds:s.rest_seconds,
+     scheme_type:s.scheme_type||"straight",scheme_data:s.scheme_data||{},duration_seconds:s.duration_seconds,completed:s.completed
     };})});
    })
   });
@@ -2058,7 +2059,16 @@ async function importOneWorkout(w){
    notes:e.notes||null,removed:!!e.removed,registered:e.registered!==false,
    rep_range:e.rep_range||e.repRange||null,planned_sets:Number(e.planned_sets||(e.sets||[]).length)||null,
    rest_seconds:Number(e.rest_seconds||e.rest||0)||null,previous_reference:e.previous_reference||e.previous||null,
-   coaching_note:e.coaching_note||e.coachingNote||null,target_rir:e.target_rir||e.targetRir||null
+   coaching_note:e.coaching_note||e.coachingNote||null,target_rir:e.target_rir||e.targetRir||null,
+   exercise_type:e.exercise_type||e.exerciseType||null,
+   execution_mode:e.execution_mode==="circuit"||e.executionMode==="circuit"?"circuit":"standard",
+   set_scheme:Array.isArray(e.set_scheme)?e.set_scheme:(Array.isArray(e.setScheme)?e.setScheme:[]),
+   circuit_id:e.circuit_id||e.circuitId||null,
+   circuit_order:e.circuit_order==null?(e.circuitOrder==null?null:Number(e.circuitOrder)):Number(e.circuit_order),
+   work_duration_seconds:e.work_duration_seconds==null?(e.workDurationSeconds==null?null:Number(e.workDurationSeconds)):Number(e.work_duration_seconds),
+   transition_rest_seconds:e.transition_rest_seconds==null?(e.transitionRestSeconds==null?null:Number(e.transitionRestSeconds)):Number(e.transition_rest_seconds),
+   round_rest_seconds:e.round_rest_seconds==null?(e.roundRestSeconds==null?null:Number(e.roundRestSeconds)):Number(e.round_rest_seconds),
+   circuit_rounds:e.circuit_rounds==null?(e.circuitRounds==null?null:Number(e.circuitRounds)):Number(e.circuit_rounds)
   }).select("id").single();
   if(ins.error)throw ins.error;
   const rows=(e.sets||[]).map(function(s,j){return {
@@ -2068,7 +2078,13 @@ async function importOneWorkout(w){
    reps:s.reps===""||s.reps==null?null:Number(s.reps),
    rir:s.rir===""||s.rir==null?null:Number(s.rir),
    rest_seconds:s.rest_seconds==null?null:Number(s.rest_seconds),
-   completed:s.completed==null?(s.weight_kg!=null||s.kg!=null||s.reps!=null):!!s.completed
+   scheme_type:["straight","warmup","top_set","backoff","drop_set","rest_pause","cluster","myo_reps","tempo","isometric","amrap"].includes(s.scheme_type)?s.scheme_type:"straight",
+   scheme_data:s.scheme_data&&typeof s.scheme_data==="object"&&!Array.isArray(s.scheme_data)?s.scheme_data:{},
+   duration_seconds:s.duration_seconds==null?null:Number(s.duration_seconds),
+   completed:s.completed==null?(
+    s.weight_kg!=null||s.kg!=null||s.reps!=null||s.rir!=null||s.duration_seconds!=null||
+    (s.scheme_data&&Array.isArray(s.scheme_data.actual_segments)&&s.scheme_data.actual_segments.length>0)
+   ):!!s.completed
   };});
   if(rows.length){const sr=await supabaseClient.from("workout_sets").insert(rows);if(sr.error)throw sr.error;}
  }
@@ -3027,14 +3043,17 @@ document.addEventListener("visibilitychange",function(){
         setScheme: scheme,
         circuitId: raw.circuit_id || raw.circuitId || normalized.circuit.id || null,
         circuitOrder: Number(raw.circuit_order || raw.circuitOrder || index + 1),
-        workDurationSeconds: Number(raw.work_duration_seconds || raw.workDurationSeconds || normalized.circuit.work_seconds || normalized.circuit.workDurationSeconds || 120),
-        transitionRestSeconds: Number(raw.transition_rest_seconds || raw.transitionRestSeconds || normalized.circuit.transition_rest_seconds || 10),
-        roundRestSeconds: Number(raw.round_rest_seconds || raw.roundRestSeconds || normalized.circuit.round_rest_seconds || 120),
-        circuitRounds: Number(raw.circuit_rounds || raw.circuitRounds || normalized.circuit.rounds || 3),
+        workDurationSeconds: Math.max(1, Math.floor(Number(raw.work_duration_seconds || raw.workDurationSeconds || normalized.circuit.work_seconds || normalized.circuit.workDurationSeconds || 120))),
+        transitionRestSeconds: Math.max(0, Math.floor(Number(raw.transition_rest_seconds ?? raw.transitionRestSeconds ?? normalized.circuit.transition_rest_seconds ?? 10))),
+        roundRestSeconds: Math.max(0, Math.floor(Number(raw.round_rest_seconds ?? raw.roundRestSeconds ?? normalized.circuit.round_rest_seconds ?? 120))),
+        circuitRounds: Math.max(1, Math.floor(Number(raw.circuit_rounds || raw.circuitRounds || normalized.circuit.rounds || 3))),
         data: data,
         sets: count
       });
     });
+    if(normalized.sessionType === "circuit"){
+      normalized.normalizedExercises.sort(function(a,b){return a.circuitOrder-b.circuitOrder;});
+    }
     normalized.ex = normalized.normalizedExercises.map(function(e){return [e.name,e.group,e.sets,e.repRange,e.rest,e.previous,e.coachingNote,e.targetRir];});
     return normalized;
   };
@@ -3055,7 +3074,7 @@ document.addEventListener("visibilitychange",function(){
     if(reps) text += " · " + reps + " rip";
     const load = spec.load_kg !== undefined && spec.load_kg !== null ? spec.load_kg : spec.target_load_kg;
     if(load !== undefined && load !== null && load !== "") text += " · " + load + " kg";
-    const rir = spec.target_rir || spec.rir;
+    const rir = spec.target_rir !== undefined && spec.target_rir !== null ? spec.target_rir : spec.rir;
     if(rir !== undefined && rir !== null && rir !== "") text += " · RIR " + rir;
     if(spec.tempo_eccentric_seconds) text += " · eccentrica " + spec.tempo_eccentric_seconds + "s";
     if(spec.pause_seconds) text += " · pausa " + spec.pause_seconds + "s";
@@ -3063,7 +3082,10 @@ document.addEventListener("visibilitychange",function(){
     if(spec.rest_pause_seconds) text += " · pause " + spec.rest_pause_seconds + "s";
     if(spec.cluster_reps && Array.isArray(spec.cluster_reps)) text += " · cluster " + spec.cluster_reps.join("+") + " (micro-pause " + (spec.cluster_pause_seconds || 15) + "s)";
     if(spec.segments && spec.segments.length){
-      text += " · " + spec.segments.map(function(seg){return (seg.load_kg ? seg.load_kg+" kg " : "") + "×" + (seg.rep_range || seg.reps || "?");}).join(" → ");
+      text += " · " + spec.segments.map(function(seg){
+        const load = seg.load_kg !== undefined && seg.load_kg !== null && seg.load_kg !== "" ? seg.load_kg+" kg " : "";
+        return load + "×" + (seg.rep_range || seg.reps || "?");
+      }).join(" → ");
     }
     return text;
   }
@@ -3171,7 +3193,13 @@ document.addEventListener("visibilitychange",function(){
     timerLeft=Math.max(0,Number(seconds)||0);
     setTimer(timerLeft);
     $("timerState").textContent=state;
-    if(timerLeft<=0)return;
+    const runtime=window.__tracciamentoCircuitRuntime;
+    const list=activeExercises();
+    const phaseLabel=$("timerPhaseLabel");
+    if(phaseLabel)phaseLabel.textContent=runtime&&runtime.phase==="transition"?"CAMBIO STAZIONE":runtime&&runtime.phase==="round_rest"?"RECUPERO GIRO":"TEMPO STAZIONE";
+    const progress=$("circuitStatus");
+    if(progress&&runtime)progress.textContent="Giro "+runtime.round+"/"+runtime.rounds+" · Stazione "+(idx+1)+"/"+list.length+" · "+(runtime.phase==="work"?"Lavoro":runtime.phase==="transition"?"Cambio":"Recupero giro");
+    if(timerLeft<=0){timerDeadline=Date.now();timerTick();return;}
     timerDeadline=Date.now()+timerLeft*1000;
     timerInt=setInterval(timerTick,250);
   }
@@ -3260,7 +3288,8 @@ document.addEventListener("visibilitychange",function(){
     }
     if(activePlan.sessionType==="circuit"){
       const p=document.createElement("p");p.className="small muted";
-      p.textContent="Circuito: "+(activePlan.circuit.rounds||3)+" giri · 120s per stazione · 10s cambio · 120s recupero tra i giri.";
+      const first=list[0]||{};
+      p.textContent="Circuito: "+(first.circuitRounds||activePlan.circuit.rounds||3)+" giri · "+(first.workDurationSeconds||120)+"s per stazione · "+(first.transitionRestSeconds??10)+"s cambio · "+(first.roundRestSeconds??120)+"s recupero tra i giri.";
       const buttons=preview.querySelector("ol");if(buttons)buttons.insertAdjacentElement("afterend",p);
     }
   };

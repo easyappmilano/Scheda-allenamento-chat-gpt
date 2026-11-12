@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Tracciamento Personale</title>
-<meta name="theme-color" content="#a33cff"><meta name="application-name" content="Tracciamento Personale"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Tracciamento"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><link rel="manifest" href="./manifest.webmanifest?v=4"><link rel="icon" type="image/png" sizes="192x192" href="./assets/tracciamento-icon-192.png?v=4"><link rel="apple-touch-icon" sizes="180x180" href="./assets/tracciamento-icon-192.png?v=4"><link rel="apple-touch-icon" sizes="192x192" href="./assets/tracciamento-icon-192.png?v=4">
+<meta name="theme-color" content="#a33cff"><meta name="application-name" content="Tracciamento Personale"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Tracciamento"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><link rel="manifest" href="./manifest.webmanifest?v=4"><link rel="icon" type="image/png" sizes="192x192" href="./assets/tracciamento-icon-192.png?v=5"><link rel="apple-touch-icon" sizes="180x180" href="./assets/tracciamento-icon-192.png?v=5"><link rel="apple-touch-icon" sizes="192x192" href="./assets/tracciamento-icon-192.png?v=5">
 <style>
 :root{--bg:#f3f4f6;--panel:#fff;--ink:#1f2937;--muted:#6b7280;--line:#d9dde4;--active:#737b87;--active-bg:#eef0f3;--good:#198754;--good-bg:#e8f5ed;--danger:#c8323e;--danger-bg:#fff0f1;--shadow:0 8px 26px rgba(25,35,50,.07)}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
@@ -511,12 +511,34 @@ button:disabled{opacity:.4;transform:none}
  .foot-actions button{min-height:30px}
 }
 @media(prefers-reduced-motion:reduce){button{transition:none}}
+
+/* Solo modifiche richieste: calendario, ordine macro e safe-area iPhone 11 */
+.calendar-bar{
+ display:flex;align-items:center;justify-content:space-between;gap:12px;
+ width:100%;min-width:0;padding:9px 11px;margin:10px 0 12px;
+ background:linear-gradient(145deg,rgba(44,47,57,.98),rgba(29,31,39,.99));
+ border:1px solid rgba(173,105,218,.58);border-radius:8px;
+}
+.calendar-bar label{flex:0 0 auto;color:#e1dbe9;font-weight:800}
+.calendar-bar input{width:auto;min-width:0;max-width:62%;padding:7px 9px}
+.food-totals-top{margin:8px 0}
+.food-totals-top .summaryline{padding:5px 0}
+#foodPage>.macro-targets{margin:8px 0}
+#trainingEmpty .training-calendar-bar{margin-top:6px}
+@media(max-width:620px){
+ .wrap{padding-top:calc(18px + env(safe-area-inset-top))}
+ .calendar-bar{padding:8px 9px;margin:8px 0 10px}
+ .calendar-bar input{max-width:68%;font-size:14px}
+ body{overflow-x:hidden;overflow-y:auto}
+ #trainingPage,#foodPage,.wrap{min-width:0;width:100%}
+ .bottom-nav{padding-bottom:max(9px,env(safe-area-inset-bottom))}
+}
 </style>
 </head>
 <body>
 <div class="wrap">
 <div class="wrap">
-  <div class="top"><div class="brand"><img class="brand-mark" src="./assets/tracciamento-icon-192.png?v=4" alt="Logo Tracciamento" width="42" height="42" decoding="async" fetchpriority="high"><span>TRACCIAMENTO</span></div><span class="tag">SCHEDA INTERATTIVA</span></div>
+  <div class="top"><div class="brand"><img class="brand-mark" src="./assets/tracciamento-icon-192.png?v=5" alt="Logo Tracciamento" width="42" height="42" decoding="async" fetchpriority="high"><span>TRACCIAMENTO</span></div><span class="tag">SCHEDA INTERATTIVA</span></div>
   <div class="card" id="authCard">
     <div id="authForm">
       <h2>Accesso personale</h2>
@@ -535,6 +557,10 @@ button:disabled{opacity:.4;transform:none}
 </div>
 <div id="trainingPage" class="app-page">
 <section id="trainingEmpty">
+  <div class="calendar-bar training-calendar-bar">
+    <label for="trainingDate">Calendario</label>
+    <input id="trainingDate" type="date" aria-label="Seleziona il giorno della sezione allenamento">
+  </div>
   <h1>Allenamento</h1>
   <div id="completedWorkoutNotice" class="card hidden" role="status" aria-live="polite">
     <h2>Allenamento terminato</h2>
@@ -626,13 +652,16 @@ button:disabled{opacity:.4;transform:none}
 </div>
 <section id="foodPage" class="app-page hidden">
   <h1>Alimentazione</h1>
+  <div class="macro-targets">
+    <span>P <strong>129 g</strong></span><span>C <strong>192 g</strong></span><span>G <strong>68 g</strong></span>
+  </div>
+  <div id="foodTotals" class="food-totals-top"></div>
+  <div class="calendar-bar">
+    <label for="foodDate">Calendario</label>
+    <input id="foodDate" type="date" aria-label="Seleziona il giorno del diario alimentare">
+  </div>
   <div class="card">
     <div class="row between"><strong>Resoconto giornaliero</strong><span class="pill">Target 1.900 kcal</span></div>
-    <div class="macro-targets">
-      <span>P <strong>129 g</strong></span><span>C <strong>192 g</strong></span><span>G <strong>68 g</strong></span>
-    </div>
-    <div class="field"><label for="foodDate">Giornata</label><input id="foodDate" type="date"></div>
-    <div id="foodTotals"></div>
   </div>
   <div class="card">
     <h2>Pasti della giornata</h2>
@@ -2105,6 +2134,7 @@ async function loadWeeklyFoodSummary(){
 }
 $("foodDate").value=localDateString();
 $("foodDate").onchange=loadFoodDay;
+$("trainingDate").value=localDateString();
 $("refreshFood").onclick=loadFoodDay;
 $("backupScope").onchange=function(){$("backupDate").disabled=this.value==="all";};
 $("backupDate").disabled=false;

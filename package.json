@@ -1,0 +1,16 @@
+{
+  "name": "tracciamento-personale-preview",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "preview": "vite --host 0.0.0.0 --port 3000 --strictPort",
+    "supabase:start": "supabase start",
+    "supabase:stop": "supabase stop",
+    "supabase:status": "supabase status"
+  },
+  "devDependencies": {
+    "supabase": "2.121.0",
+    "vite": "7.1.12"
+  }
+}

@@ -1700,9 +1700,12 @@ async function collectContinuityArchive(scope,date){
   const d=String((record.payload&&record.payload.date)||record.recorded_at||"").slice(0,10);
   return d>=from&&d<=to;
  });
+ const chatgptRestoreManifest=filtered.find(function(r){return r.record_key==="chat-control-center-restore-v1";})||null;
  const base={
-  generated_at:new Date().toISOString(),assistant_workflow_version:2,
-  commands:{progress_update:"Aggiornamento forma fisica",workout_plan:"Scheda allenamento",nutrition_log:"Diario alimentare"},
+  generated_at:new Date().toISOString(),assistant_workflow_version:3,
+  commands:{progress_update:"Aggiornamento forma fisica",workout_plan:"Scheda allenamento",nutrition_log:"Diario alimentare",control_center:"CC"},
+  startup_behavior:"Quando questo JSON viene allegato e inviato da solo in una nuova chat, leggere internamente il backup e ripristinare il contesto; la prima risposta utile deve mostrare direttamente il Centro di controllo, senza chiedere testo aggiuntivo e senza mostrare un riepilogo dell'estrazione.",
+  chatgpt_restore_manifest:chatgptRestoreManifest?chatgptRestoreManifest.payload:null,
   operating_rules:filtered.filter(function(r){return r.domain==="rules";}).map(function(r){return {record_key:r.record_key,title:r.title,payload:r.payload};}),
   context_domains:["training","nutrition","app","rules"],
   continuity_record_count:filtered.length,
@@ -1857,10 +1860,13 @@ async function collectArchive(scope,date,kind){
   const recipe=recipes.find(function(r){return r.id===m.recipe_id;});
   return Object.assign({},m,{recipe_source_id:recipe?recipe.source_id:null,items:entries.filter(function(e){return e.meal_id===m.id;})});
  });
+ const chatgptRestoreManifest=continuityRecords.find(function(r){return r.record_key==="chat-control-center-restore-v1";})||null;
  const continuityBase={
   generated_at:new Date().toISOString(),
-  assistant_workflow_version:2,
-  commands:{progress_update:"Aggiornamento forma fisica",workout_plan:"Scheda allenamento",nutrition_log:"Diario alimentare"},
+  assistant_workflow_version:3,
+  chatgpt_restore_manifest:chatgptRestoreManifest?chatgptRestoreManifest.payload:null,
+  startup_behavior:"Quando questo JSON viene allegato e inviato da solo in una nuova chat, leggere internamente il backup e ripristinare il contesto; la prima risposta utile deve mostrare direttamente il Centro di controllo, senza chiedere testo aggiuntivo e senza mostrare un riepilogo dell'estrazione.",
+  commands:{progress_update:"Aggiornamento forma fisica",workout_plan:"Scheda allenamento",nutrition_log:"Diario alimentare",control_center:"CC"},
   operating_rules:[
    "ChatGPT esegue il ragionamento e le domande; l'app non integra modelli AI.",
    "Prima di inviare una scheda di allenamento a workout_plans, mostra la scheda e attendi approvazione esplicita.",
@@ -1883,7 +1889,8 @@ async function collectArchive(scope,date,kind){
   fitness_profile:profileResult.data||null,fitness_checkins:fitnessCheckins,
   fitness_measurements:fitnessMeasurements,fitness_progress_photos:backupProgressPhotos,
   fitness_weight_entries:weightEntries,workout_plans:workoutPlans,
-  continuity_records:continuityRecords,continuity_data:continuityBase
+  continuity_records:continuityRecords,continuity_data:continuityBase,
+  chatgpt_restore_manifest:chatgptRestoreManifest?chatgptRestoreManifest.payload:null
  };
  const rules=continuityRecords.filter(function(r){return r.domain==="rules";});
  const relevantRecords=kind==="all"?continuityRecords:continuityRecords.filter(function(r){

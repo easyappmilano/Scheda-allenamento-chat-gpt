@@ -16,6 +16,7 @@ Al primo avvio vengono scaricati i container locali Supabase, applicate le migra
 
 - Il Codespace usa solo `preview/development`.
 - Supabase CLI non viene collegato a un progetto remoto.
+- La migrazione che sostituisce la funzione esistente `get_training_context` resta sospesa finché non autorizzi separatamente quella modifica; le altre migrazioni locali vengono applicate.
 - Lo script esegue `supabase start` e `supabase migration up --local`: non esegue `db push`, `link` o comandi remoti.
 - L'app rifiuta di avviarsi in preview se manca la configurazione locale: non effettua fallback verso il database di produzione.
 - Il port forwarding dell'app resta privato. Le chiamate Supabase passano attraverso il proxy Vite sulla stessa origine.
@@ -36,5 +37,6 @@ Quando hai finito i test, arresta il Codespace dal menu Codespaces. Non lasciarl
 - Log app: `tail -f /tmp/tracciamento-preview.log`
 - Arresto Supabase locale: `npx supabase stop`
 - Riavvio completo: riavvia il Codespace; lo script di avvio riallinea le migrazioni locali.
+- Solo dopo approvazione esplicita della modifica a `get_training_context`, avvia il Codespace con `ALLOW_PREVIEW_TRAINING_CONTEXT_REPLACE=1` nell'ambiente del terminale prima di eseguire `bash scripts/start-preview.sh`.
 
 La prima inizializzazione può richiedere diversi minuti per il download delle immagini Docker.

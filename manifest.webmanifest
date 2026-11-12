@@ -1,0 +1,19 @@
+{
+  "id": "./",
+  "name": "Tracciamento Personale",
+  "short_name": "Tracciamento",
+  "description": "Diario personale di allenamento e alimentazione",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b0811",
+  "theme_color": "#8b2cf5",
+  "icons": [
+    {
+      "src": "assets/tracciamento-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

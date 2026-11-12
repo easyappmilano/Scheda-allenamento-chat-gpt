@@ -592,6 +592,19 @@ button:disabled{opacity:.4;transform:none}
 }
 </style>
 
+
+<style id="advanced-workout-schemes">
+.set-protocol{grid-column:1/-1;margin:-2px 0 7px 42px;padding:7px 9px;border:1px solid var(--line);border-radius:9px;background:rgba(67,186,255,.07);font-size:11px;color:var(--muted);line-height:1.35}
+.set-protocol strong{color:var(--ink);font-size:11px}
+.set-segments{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.set-segment{display:flex;align-items:center;gap:4px;background:rgba(127,140,155,.12);padding:5px 6px;border-radius:7px}
+.set-segment input{width:54px;padding:5px 4px;font-size:11px;border-radius:6px}
+.exercise-mode-chip{display:inline-flex;gap:5px;align-items:center;margin:6px 5px 0 0;padding:4px 7px;border-radius:7px;background:var(--active-bg);color:var(--ink);font-size:10px;font-weight:800}
+.circuit-status{font-size:11px;font-weight:800;color:var(--active);margin:6px 0 2px}
+#timerPhaseLabel{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:800;margin-bottom:3px}
+@media(max-width:680px){.set-protocol{margin-left:28px}.set-segment input{width:48px}}
+</style>
+
 </head>
 <body>
 <div class="wrap">
@@ -1272,7 +1285,15 @@ async function persistWorkoutToSupabase() {
     rest_seconds: Number.isFinite(Number(exercise.rest)) ? Number(exercise.rest) : null,
     previous_reference: exercise.previous || null,
     coaching_note: exercise.coachingNote || null,
-    target_rir: exercise.targetRir || null
+    target_rir: exercise.targetRir || null,
+    execution_mode: exercise.executionMode || "standard",
+    set_scheme: (exercise.data || []).map(set => set.scheme || { kind: "straight" }),
+    circuit_id: exercise.circuitId || null,
+    circuit_order: Number.isFinite(Number(exercise.circuitOrder)) ? Number(exercise.circuitOrder) : null,
+    work_duration_seconds: exercise.executionMode === "circuit" ? Number(exercise.workDurationSeconds || 120) : null,
+    transition_rest_seconds: exercise.executionMode === "circuit" ? Number(exercise.transitionRestSeconds || 10) : null,
+    round_rest_seconds: exercise.executionMode === "circuit" ? Number(exercise.roundRestSeconds || 120) : null,
+    circuit_rounds: exercise.executionMode === "circuit" ? Number(exercise.circuitRounds || 3) : null
   }));
   const exerciseIdsByOrder = {};
   if (exerciseRows.length) {
@@ -1298,7 +1319,14 @@ async function persistWorkoutToSupabase() {
         reps: reps === null ? null : Math.round(reps),
         rir: rir,
         rest_seconds: Number.isFinite(Number(exercise.rest)) ? Number(exercise.rest) : null,
-        completed: kg !== null || reps !== null || rir !== null
+        scheme_type: (set.scheme && set.scheme.kind) || "straight",
+        scheme_data: {
+          prescription: set.scheme || { kind: "straight" },
+          actual_segments: Array.isArray(set.actualSegments) ? set.actualSegments : []
+        },
+        duration_seconds: numericOrNull(set.duration),
+        completed: kg !== null || reps !== null || rir !== null || numericOrNull(set.duration) !== null ||
+          (Array.isArray(set.actualSegments) && set.actualSegments.some(segment => segment.kg || segment.reps))
       });
     });
   });
@@ -2968,4 +2996,283 @@ document.addEventListener("visibilitychange",function(){
 });
 
 </script>
+
+<script id="advanced-workout-schemes">
+(function(){
+  const baseNormalizePlanData = normalizePlanData;
+  normalizePlanData = function(input){
+    const plan = input.plan || input.workout || input;
+    const rawExercises = plan.exercises || input.exercises || [];
+    const normalized = baseNormalizePlanData(input);
+    normalized.sessionType = String(plan.session_type || plan.sessionType || plan.execution_mode || "standard").toLowerCase();
+    normalized.circuit = plan.circuit || {};
+    normalized.normalizedExercises = normalized.normalizedExercises.map(function(exercise,index){
+      const raw = rawExercises[index] || {};
+      const scheme = Array.isArray(raw.set_scheme) ? raw.set_scheme : (Array.isArray(raw.setScheme) ? raw.setScheme : []);
+      const count = scheme.length || exercise.data.length;
+      const sourceData = exercise.data || [];
+      const data = Array.from({length:count},function(_,setIndex){
+        const existing = sourceData[setIndex] || {kg:"",reps:"",rir:""};
+        return Object.assign({},existing,{
+          duration: existing.duration || "",
+          scheme: scheme[setIndex] || {kind:"straight",label:"Serie standard"},
+          actualSegments: Array.isArray(existing.actualSegments) ? existing.actualSegments : []
+        });
+      });
+      const executionMode = String(raw.execution_mode || raw.executionMode || (normalized.sessionType === "circuit" ? "circuit" : "standard")).toLowerCase();
+      return Object.assign({},exercise,{
+        executionMode: executionMode,
+        exerciseType: raw.exercise_type || raw.exerciseType || raw.movement_type || "compound",
+        setScheme: scheme,
+        circuitId: raw.circuit_id || raw.circuitId || normalized.circuit.id || null,
+        circuitOrder: Number(raw.circuit_order || raw.circuitOrder || index + 1),
+        workDurationSeconds: Number(raw.work_duration_seconds || raw.workDurationSeconds || normalized.circuit.work_seconds || normalized.circuit.workDurationSeconds || 120),
+        transitionRestSeconds: Number(raw.transition_rest_seconds || raw.transitionRestSeconds || normalized.circuit.transition_rest_seconds || 10),
+        roundRestSeconds: Number(raw.round_rest_seconds || raw.roundRestSeconds || normalized.circuit.round_rest_seconds || 120),
+        circuitRounds: Number(raw.circuit_rounds || raw.circuitRounds || normalized.circuit.rounds || 3),
+        data: data,
+        sets: count
+      });
+    });
+    normalized.ex = normalized.normalizedExercises.map(function(e){return [e.name,e.group,e.sets,e.repRange,e.rest,e.previous,e.coachingNote,e.targetRir];});
+    return normalized;
+  };
+
+  function isCircuitWorkout(){
+    return !!(activePlan && (activePlan.sessionType === "circuit" || (activeExercises().length && activeExercises().every(function(e){return e.executionMode === "circuit";}))));
+  }
+  function schemeDescription(spec){
+    spec = spec || {kind:"straight"};
+    const kind = String(spec.kind || "straight");
+    const names = {
+      straight:"Serie classica", warmup:"Riscaldamento", top_set:"Top set", backoff:"Back-off",
+      drop_set:"Drop set", rest_pause:"Rest-pause", cluster:"Cluster set", myo_reps:"Myo-reps",
+      tempo:"Tempo controllato", isometric:"Isometrica", amrap:"AMRAP"
+    };
+    let text = spec.label || names[kind] || kind;
+    const reps = spec.rep_range || spec.reps || spec.target_reps;
+    if(reps) text += " · " + reps + " rip";
+    const rir = spec.target_rir || spec.rir;
+    if(rir !== undefined && rir !== null && rir !== "") text += " · RIR " + rir;
+    if(spec.tempo_eccentric_seconds) text += " · eccentrica " + spec.tempo_eccentric_seconds + "s";
+    if(spec.pause_seconds) text += " · pausa " + spec.pause_seconds + "s";
+    if(spec.concentric_seconds) text += " · concentrica " + spec.concentric_seconds + "s";
+    if(spec.rest_pause_seconds) text += " · pause " + spec.rest_pause_seconds + "s";
+    if(spec.cluster_reps && Array.isArray(spec.cluster_reps)) text += " · cluster " + spec.cluster_reps.join("+") + " (micro-pause " + (spec.cluster_pause_seconds || 15) + "s)";
+    if(spec.segments && spec.segments.length){
+      text += " · " + spec.segments.map(function(seg){return (seg.load_kg ? seg.load_kg+" kg " : "") + "×" + (seg.rep_range || seg.reps || "?");}).join(" → ");
+    }
+    return text;
+  }
+  function ensureCircuitRuntime(){
+    if(!isCircuitWorkout()){window.__tracciamentoCircuitRuntime=null;return null;}
+    let runtime=window.__tracciamentoCircuitRuntime;
+    if(!runtime || runtime.planId !== activePlan.id){
+      runtime={planId:activePlan.id,phase:"work",round:1,rounds:Number(activePlan.circuit.rounds || activeExercises()[0]?.circuitRounds || 3),currentIndex:idx,completed:false};
+    }else if(runtime.currentIndex !== idx && !window.__tracciamentoCircuitAdvance){
+      runtime.phase="work";runtime.round=1;runtime.completed=false;runtime.currentIndex=idx;
+    }
+    runtime.currentIndex=idx;
+    window.__tracciamentoCircuitRuntime=runtime;
+    return runtime;
+  }
+  const baseRenderExercise = renderExercise;
+  renderExercise = function(){
+    baseRenderExercise();
+    const list=activeExercises();
+    const e=list[idx];
+    if(!e)return;
+    const circuit=isCircuitWorkout();
+    const runtime=circuit?ensureCircuitRuntime():null;
+    const head=document.querySelector("#exerciseCard .sets-head span:nth-child(3)");
+    if(head)head.textContent=circuit?"Sec.":"Rip.";
+    const timerPanel=$("timerPanel");
+    if(timerPanel){
+      timerPanel.setAttribute("aria-label",circuit?"Timer stazione circuito":"Timer recupero");
+      let label=$("timerPhaseLabel");
+      if(!label){label=document.createElement("span");label.id="timerPhaseLabel";timerPanel.querySelector(".timer-topline").prepend(label);}
+      label.textContent=circuit?"TEMPO STAZIONE":"RECUPERO";
+    }
+    const meta=$("restTarget");
+    if(meta){
+      meta.textContent=circuit
+        ? "Lavoro "+e.workDurationSeconds+"s · cambio "+e.transitionRestSeconds+"s · pausa giro "+e.roundRestSeconds+"s"
+        : "Recupero consigliato: "+e.rest+" sec";
+    }
+    let chip=document.getElementById("exerciseModeChip");
+    if(!chip){
+      chip=document.createElement("span");chip.id="exerciseModeChip";chip.className="exercise-mode-chip";
+      const metaWrap=$("previousLoad").parentElement;metaWrap.appendChild(chip);
+    }
+    chip.textContent=(e.exerciseType||"compound")+" · "+(circuit?"circuito":(e.executionMode||"standard")==="standard"?"serie":"circuito");
+    if(circuit && runtime){
+      let progress=$("circuitStatus");
+      if(!progress){progress=document.createElement("div");progress.id="circuitStatus";progress.className="circuit-status";$("exerciseCard").querySelector(".exercise-meta").insertAdjacentElement("afterend",progress);}
+      progress.textContent="Giro "+runtime.round+"/"+runtime.rounds+" · Stazione "+(idx+1)+"/"+list.length+" · "+(runtime.phase==="work"?"Lavoro":runtime.phase==="transition"?"Cambio":"Recupero giro");
+      $("timerPreset").value=e.workDurationSeconds;
+      setTimer(e.workDurationSeconds);
+      stopTimer("Pronto");
+    }else{
+      const progress=$("circuitStatus");if(progress)progress.remove();
+      $("timerPreset").value=e.rest;
+    }
+    const rows=$("setsContainer").querySelectorAll(".setrow");
+    rows.forEach(function(row,setIndex){
+      const set=e.data[setIndex] || {};
+      const spec=set.scheme || {kind:"straight"};
+      const repsInput=row.querySelector('input[data-f="reps"],input[data-f="duration"]');
+      if(repsInput && circuit){
+        repsInput.dataset.f="duration";
+        repsInput.placeholder="Sec.";
+        repsInput.value=set.duration || "";
+      }else if(repsInput){
+        repsInput.dataset.f="reps";
+        repsInput.placeholder="Rip.";
+        repsInput.value=set.reps || "";
+      }
+      const number=row.querySelector(".set-num");
+      if(number)number.textContent=String(setIndex+1);
+      const info=document.createElement("div");
+      info.className="set-protocol";
+      info.innerHTML="<strong>"+esc(schemeDescription(spec))+"</strong>";
+      if(spec.segments && spec.segments.length){
+        if(!Array.isArray(set.actualSegments))set.actualSegments=[];
+        const segWrap=document.createElement("div");segWrap.className="set-segments";
+        spec.segments.forEach(function(segment,segmentIndex){
+          const actual=set.actualSegments[segmentIndex] || {};
+          const cell=document.createElement("div");cell.className="set-segment";
+          cell.innerHTML="<span>"+esc(segment.label || ("Drop "+(segmentIndex+1)))+"</span>"+
+            "<input inputmode='decimal' placeholder='"+esc(segment.load_kg || "kg")+"' value='"+esc(actual.kg || "")+"' aria-label='Carico segmento "+(segmentIndex+1)+"' data-segment-index='"+segmentIndex+"' data-segment-field='kg'>"+
+            "<input inputmode='numeric' placeholder='"+esc(segment.rep_range || segment.reps || "rip.")+"' value='"+esc(actual.reps || "")+"' aria-label='Ripetizioni segmento "+(segmentIndex+1)+"' data-segment-index='"+segmentIndex+"' data-segment-field='reps'>";
+          segWrap.appendChild(cell);
+        });
+        info.appendChild(segWrap);
+      }
+      row.insertAdjacentElement("afterend",info);
+    });
+    $("setsContainer").querySelectorAll(".set-segment input").forEach(function(input){
+      input.addEventListener("input",function(){
+        const set=e.data[Number(input.closest(".set-protocol").previousElementSibling.querySelector("[data-i]")?.dataset.i || 0)];
+        if(!set)return;
+        const k=Number(input.dataset.segmentIndex);
+        set.actualSegments=set.actualSegments||[];
+        set.actualSegments[k]=set.actualSegments[k]||{};
+        set.actualSegments[k][input.dataset.segmentField]=input.value;
+      });
+    });
+  };
+
+  function startCircuitPhase(seconds,state){
+    if(timerInt){clearInterval(timerInt);timerInt=null;}
+    timerDeadline=null;
+    timerLeft=Math.max(0,Number(seconds)||0);
+    setTimer(timerLeft);
+    $("timerState").textContent=state;
+    if(timerLeft<=0)return;
+    timerDeadline=Date.now()+timerLeft*1000;
+    timerInt=setInterval(timerTick,250);
+  }
+  const baseTimerTick=timerTick;
+  timerTick=function(){
+    if(!isCircuitWorkout())return baseTimerTick();
+    const runtime=window.__tracciamentoCircuitRuntime || ensureCircuitRuntime();
+    if(!runtime || runtime.completed)return;
+    if(!timerDeadline)return;
+    timerLeft=Math.max(0,Math.ceil((timerDeadline-Date.now())/1000));
+    setTimer(timerLeft);
+    if(timerLeft>0)return;
+    const list=activeExercises();
+    const current=list[idx];
+    if(runtime.phase==="work"){
+      runtime.phase="transition";
+      startCircuitPhase(current.transitionRestSeconds || 10,"Cambio stazione");
+      return;
+    }
+    if(runtime.phase==="transition"){
+      if(idx < list.length-1){
+        idx++;
+        runtime.phase="work";
+        runtime.currentIndex=idx;
+        window.__tracciamentoCircuitAdvance=true;
+        renderExercise();
+        window.__tracciamentoCircuitAdvance=false;
+        startCircuitPhase(list[idx].workDurationSeconds || 120,"Stazione attiva");
+        return;
+      }
+      if(runtime.round < runtime.rounds){
+        runtime.phase="round_rest";
+        startCircuitPhase(current.roundRestSeconds || 120,"Recupero giro");
+        return;
+      }
+      runtime.completed=true;
+      stopTimer("Circuito completato");
+      setTimer(0);
+      $("timerPhaseLabel").textContent="CIRCUITO COMPLETATO";
+      return;
+    }
+    if(runtime.phase==="round_rest"){
+      runtime.round++;
+      idx=0;
+      runtime.phase="work";
+      runtime.currentIndex=idx;
+      window.__tracciamentoCircuitAdvance=true;
+      renderExercise();
+      window.__tracciamentoCircuitAdvance=false;
+      startCircuitPhase(list[idx].workDurationSeconds || 120,"Stazione attiva");
+    }
+  };
+
+  const baseTimerReset = $("timerReset").onclick;
+  $("timerReset").onclick=function(){
+    if(!isCircuitWorkout()){baseTimerReset();return;}
+    const runtime=window.__tracciamentoCircuitRuntime || ensureCircuitRuntime();
+    if(runtime){runtime.phase="work";runtime.round=1;runtime.completed=false;runtime.currentIndex=idx;}
+    const e=activeExercises()[idx];
+    stopTimer("Pronto");
+    timerLeft=e.workDurationSeconds || 120;
+    setTimer(timerLeft);
+    $("timerPhaseLabel").textContent="TEMPO STAZIONE";
+    saveDraft();
+  };
+
+  const basePendingPreview=renderPendingWorkoutPreview;
+  renderPendingWorkoutPreview=function(){
+    basePendingPreview();
+    if(!activePlan || !activePlan.normalizedExercises)return;
+    const preview=$("pendingWorkoutPreview");
+    const list=activePlan.normalizedExercises;
+    const ol=preview && preview.querySelector("ol");
+    if(ol){
+      ol.innerHTML=list.map(function(e){
+        const schemes=e.data.map(function(s,i){return "S"+(i+1)+" "+schemeDescription(s.scheme);}).join("; ");
+        const mode=e.executionMode==="circuit"?"circuit · "+e.workDurationSeconds+"s lavoro":"serie";
+        return "<li><strong>"+esc(e.name)+"</strong> · "+esc(e.exerciseType)+" · "+e.sets+" serie · "+esc(mode)+"<br><span class='small muted'>"+esc(e.repRange)+" · "+esc(schemes)+"</span></li>";
+      }).join("");
+    }
+    if(activePlan.sessionType==="circuit"){
+      const p=document.createElement("p");p.className="small muted";
+      p.textContent="Circuito: "+(activePlan.circuit.rounds||3)+" giri · 120s per stazione · 10s cambio · 120s recupero tra i giri.";
+      const buttons=preview.querySelector("ol");if(buttons)buttons.insertAdjacentElement("afterend",p);
+    }
+  };
+
+  const baseBuildSummaryText=buildSummaryText;
+  buildSummaryText=function(){
+    let summary=baseBuildSummaryText();
+    const details=[];
+    exercises.filter(e=>!e.removed).forEach(function(e){
+      details.push(e.name+" — "+(e.exerciseType||"compound")+" — "+(e.executionMode||"standard"));
+      (e.data||[]).forEach(function(s,index){
+        const extra=schemeDescription(s.scheme);
+        const segments=(s.actualSegments||[]).map(function(x){return (x.kg||"—")+" kg × "+(x.reps||"—");}).join(" → ");
+        if(extra!=="Serie standard" || segments || s.duration){
+          details.push("  Serie "+(index+1)+": "+extra+(segments?" · segmenti: "+segments:"")+(s.duration?" · durata reale "+s.duration+" sec":""));
+        }
+      });
+    });
+    return summary+"\n\nSCHEMI E SERIE SPECIALI\n"+details.join("\n");
+  };
+})();
+</script>
+
 </body>

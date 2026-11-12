@@ -1866,7 +1866,7 @@ async function collectArchive(scope,date,kind){
   assistant_workflow_version:3,
   chatgpt_restore_manifest:chatgptRestoreManifest?chatgptRestoreManifest.payload:null,
   startup_behavior:"Quando questo JSON viene allegato e inviato da solo in una nuova chat, leggere internamente il backup e ripristinare il contesto; la prima risposta utile deve mostrare direttamente il Centro di controllo, senza chiedere testo aggiuntivo e senza mostrare un riepilogo dell'estrazione.",
-  commands:{progress_update:"Aggiornamento forma fisica",workout_plan:"Scheda allenamento",nutrition_log:"Diario alimentare"},
+  commands:{progress_update:"Aggiornamento forma fisica",workout_plan:"Scheda allenamento",nutrition_log:"Diario alimentare",control_center:"CC"},
   operating_rules:[
    "ChatGPT esegue il ragionamento e le domande; l'app non integra modelli AI.",
    "Prima di inviare una scheda di allenamento a workout_plans, mostra la scheda e attendi approvazione esplicita.",

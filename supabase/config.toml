@@ -12,13 +12,12 @@ port = 54322
 major_version = 17
 
 [studio]
-enabled = true
+enabled = false
 port = 54323
 
 [auth]
 enabled = true
 site_url = "http://localhost:3000"
-additional_redirect_urls = ["http://localhost:3000", "https://*.app.github.dev"]
 jwt_expiry = 3600
 enable_signup = true
 

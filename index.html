@@ -627,7 +627,8 @@ button:disabled{opacity:.4;transform:none}
       <select id="singleExerciseGroup">
         <option>Petto</option><option>Schiena</option><option>Spalle</option><option>Trapezi</option>
         <option>Bicipiti</option><option>Tricipiti</option><option>Gambe</option><option>Glutei</option>
-        <option>Addome</option><option selected>Altro</option>
+        <option>Quadricipiti</option><option>Femorali</option><option>Adduttori</option><option>Abduttori</option>
+        <option>Addome</option><option>Addominali</option><option selected>Altro</option>
       </select>
     </div>
     <div class="field">
@@ -2602,10 +2603,17 @@ $("saveSingleExercise").onclick=async function(){
   });
   const setInsert=await supabaseClient.from("workout_sets").insert(setRows);
   if(setInsert.error)throw setInsert.error;
-  status.textContent="Esercizio e "+sets.length+" serie salvati nello storico del "+new Date(selectedDay+"T12:00:00").toLocaleDateString("it-IT")+".";
-  status.className="small success";
+  const successMessage="Esercizio e "+sets.length+" serie salvati nello storico del "+new Date(selectedDay+"T12:00:00").toLocaleDateString("it-IT")+".";
+  workoutId=null;exerciseId=null;
   resetSingleExerciseForm();
-  await Promise.all([loadExerciseHistoryOptions(),loadTrainingCalendarDay()]);
+  await loadExerciseHistoryOptions();
+  if(Array.from($("exerciseHistorySelect").options).some(function(option){return option.value===name;})){
+   $("exerciseHistorySelect").value=name;
+   await loadSelectedExerciseHistory();
+  }
+  await loadTrainingCalendarDay();
+  status.textContent=successMessage;
+  status.className="small success";
  }catch(error){
   if(workoutId){
    try{await supabaseClient.from("workout_sets").delete().eq("workout_id",workoutId).eq("user_id",currentUser.id);}catch(e){}

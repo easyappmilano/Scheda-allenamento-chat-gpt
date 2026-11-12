@@ -4,7 +4,7 @@ Questa configurazione è destinata esclusivamente al branch `preview/development
 
 ## Avvio iniziale
 
-1. Apri [Crea Codespace sulla branch preview/development](https://github.com/codespaces/new?repo=easyappmilano/Scheda-allenamento-chat-gpt&ref=preview/development).
+1. Apri [Crea Codespace sulla branch preview/development](https://codespaces.new/easyappmilano/Scheda-allenamento-chat-gpt/tree/preview/development).
 2. Seleziona la macchina **2-core** per rimanere entro la quota gratuita GitHub Free.
 3. Crea il Codespace e attendi il completamento dell'inizializzazione.
 4. Nella scheda **Ports**, apri la porta **3000**. Deve rimanere **Private**.

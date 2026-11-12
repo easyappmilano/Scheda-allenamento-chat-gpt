@@ -920,8 +920,8 @@ $('restart').onclick=()=>{stopTimer('Pronto');try{localStorage.removeItem(DRAFT_
 
 // Salvataggio locale automatico della sessione in Chrome: ripristino anche dopo una chiusura accidentale.
 const DRAFT_KEY='tracciamento_allenamento_draft_v3';
-function saveDraft(){try{if(!activePlan)return;localStorage.setItem(DRAFT_KEY,JSON.stringify({activePlanId:activePlan.id,activePlanData:activePlan,duration:$('duration').value,exercises,idx,updatedAt:new Date().toISOString()}))}catch(e){}}
-function restoreDraft(){try{const raw=localStorage.getItem(DRAFT_KEY);if(!raw)return;const d=JSON.parse(raw),p=d.activePlanData||plans.find(x=>x.id===d.activePlanId);if(!p||!Array.isArray(d.exercises))return;activePlan=p;exercises=d.exercises;idx=Number(d.idx)||0;$('duration').value=d.duration||'';$('workoutTitle').textContent=`Scheda ${p.id} · ${p.title}`;$('workoutDuration').textContent='Sessione ripristinata dal salvataggio locale';$('workoutStatus').textContent='RIPRISTINATA';$('workoutStatus').className='tag';renderExercise();show('stepWorkout')}catch(e){}}
+function saveDraft(){try{if(!activePlan)return;localStorage.setItem(DRAFT_KEY,JSON.stringify({activePlanId:activePlan.id,activePlanData:activePlan,duration:$('duration').value,exercises,idx,circuitRuntime:window.__tracciamentoCircuitRuntime||null,circuitTimerRemainingSeconds:Number.isFinite(Number(timerLeft))?timerLeft:null,updatedAt:new Date().toISOString()}))}catch(e){}}
+function restoreDraft(){try{const raw=localStorage.getItem(DRAFT_KEY);if(!raw)return;const d=JSON.parse(raw),p=d.activePlanData||plans.find(x=>x.id===d.activePlanId);if(!p||!Array.isArray(d.exercises))return;activePlan=p;exercises=d.exercises;idx=Number(d.idx)||0;window.__tracciamentoCircuitRuntime=d.circuitRuntime||null;window.__tracciamentoCircuitTimerRemainingSeconds=d.circuitTimerRemainingSeconds==null?null:Number(d.circuitTimerRemainingSeconds);$('duration').value=d.duration||'';$('workoutTitle').textContent=`Scheda ${p.id} · ${p.title}`;$('workoutDuration').textContent='Sessione ripristinata dal salvataggio locale';$('workoutStatus').textContent='RIPRISTINATA';$('workoutStatus').className='tag';renderExercise();show('stepWorkout')}catch(e){}}
 setInterval(saveDraft,2000);window.addEventListener('pagehide',saveDraft);window.addEventListener('beforeunload',saveDraft);restoreDraft();
 </script>
 <script>
@@ -3151,7 +3151,15 @@ document.addEventListener("visibilitychange",function(){
       if(runtime.completed){setTimer(0);stopTimer("Circuito completato");}
       else{setTimer(e.workDurationSeconds);stopTimer("Pronto");}
     }else{
+      window.__tracciamentoCircuitRuntime=null;
       const progress=$("circuitStatus");if(progress)progress.remove();
+      const phaseLabel=$("timerPhaseLabel");if(phaseLabel)phaseLabel.textContent="RECUPERO";
+      $("navigationSelect").disabled=false;
+      $("exerciseSelect").disabled=false;
+      $("deleteExercise").disabled=false;
+      $("registerExercise").disabled=false;
+      $("addSet").disabled=false;
+      $("setsContainer").querySelectorAll(".remove-set").forEach(function(button){button.disabled=false;});
       $("timerPreset").value=e.rest;
     }
     const rows=$("setsContainer").querySelectorAll(".setrow");
@@ -3203,11 +3211,12 @@ document.addEventListener("visibilitychange",function(){
 
   const baseTimerStart=$("timerStart").onclick;
   $("timerStart").onclick=function(){
-    if(isCircuitWorkout()){
+    const result=baseTimerStart.call(this);
+    if(isCircuitWorkout()&&timerInt&&timerDeadline){
       const runtime=window.__tracciamentoCircuitRuntime||ensureCircuitRuntime();
-      if(runtime&&!runtime.completed){runtime.started=true;updateCircuitControls(runtime,activeExercises());}
+      if(runtime&&!runtime.completed){runtime.started=true;updateCircuitControls(runtime,activeExercises());saveDraft();}
     }
-    return baseTimerStart.call(this);
+    return result;
   };
 
   function startCircuitPhase(seconds,state){
@@ -3225,6 +3234,7 @@ document.addEventListener("visibilitychange",function(){
     if(timerLeft<=0){timerDeadline=Date.now();timerTick();return;}
     timerDeadline=Date.now()+timerLeft*1000;
     timerInt=setInterval(timerTick,250);
+    saveDraft();
   }
   const baseTimerTick=timerTick;
   timerTick=function(){
@@ -3261,6 +3271,7 @@ document.addEventListener("visibilitychange",function(){
       const finalProgress=$("circuitStatus");
       if(finalProgress)finalProgress.textContent="Circuito completato · "+runtime.round+"/"+runtime.rounds+" giri";
       updateCircuitControls(runtime,list);
+      saveDraft();
       return;
     }
     if(runtime.phase==="transition"){
@@ -3337,6 +3348,24 @@ document.addEventListener("visibilitychange",function(){
     });
     return summary+"\n\nSCHEMI E SERIE SPECIALI\n"+details.join("\n");
   };
+
+  if(activePlan && isCircuitWorkout()){
+    const runtime=ensureCircuitRuntime();
+    renderExercise();
+    if(runtime){
+      const restoredRemaining=window.__tracciamentoCircuitTimerRemainingSeconds;
+      if(runtime.completed){setTimer(0);stopTimer("Circuito completato");}
+      else if(restoredRemaining!==null&&Number.isFinite(Number(restoredRemaining))){
+        setTimer(Math.max(0,Number(restoredRemaining)));
+        stopTimer(runtime.started?"Pausa ripristinata":"Pronto");
+        const phaseLabel=$("timerPhaseLabel");
+        if(phaseLabel)phaseLabel.textContent=runtime.phase==="transition"?"CAMBIO STAZIONE":runtime.phase==="round_rest"?"RECUPERO GIRO":"TEMPO STAZIONE";
+        const progress=$("circuitStatus");
+        if(progress)progress.textContent="Giro "+runtime.round+"/"+runtime.rounds+" · Stazione "+(idx+1)+"/"+activeExercises().length+" · "+(runtime.phase==="work"?"Lavoro":runtime.phase==="transition"?"Cambio":"Recupero giro");
+      }
+      updateCircuitControls(runtime,activeExercises());
+    }
+  }
 })();
 </script>
 
